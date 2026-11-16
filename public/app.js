@@ -1,6 +1,6 @@
 'use strict';
 const $=id=>document.getElementById(id);
-const state={page:'defence',team:'BOS',stat:'pts',position:'ALL',role:'Pass-first PG',matchFilter:'all',gameFilter:'ALL',data:null,status:null,audit:null};
+const state={page:'defence',team:'BOS',stat:'pts',position:'ALL',role:'Pass-first guard',matchFilter:'all',gameFilter:'ALL',data:null,status:null,audit:null};
 const LABEL={pts:'points',reb:'rebounds',ast:'assists'};
 const SAFE=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=n=>Number.isFinite(Number(n))?Number(n).toFixed(1):'—';
@@ -23,7 +23,7 @@ function renderMeta(){
   $('metric-players').innerHTML=`${s.players||'—'} <span>tracked</span>`;
   $('metric-window').textContent=s.first?`${shortDate(s.first)} — ${shortDate(s.last)}`:'Awaiting first sync';
   $('tomorrow-date').textContent=longDate(d.targetDate);
-  $('nav-count').textContent=d.highlights?.filter(p=>p.major).length||0;
+  $('nav-count').textContent=d.matches?.length||0;
   $('stat-slate').textContent=d.matches?.length||0;
   $('stat-strong').textContent=d.highlights?.filter(p=>p.major).length||0;
   $('stat-edges').textContent=d.highlights?.filter(p=>!p.major).length||0;

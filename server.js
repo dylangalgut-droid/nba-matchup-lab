@@ -121,7 +121,7 @@ async function getJSON(url,maxTries=3){
   }
 }
 function auditFingerprint(games){
-  const fingerprint=games.map(g=>`${g.id}|${g.date}|${g.players?.length||0}`).sort().join(';');
+  const fingerprint='broad-positions-v1;'+games.map(g=>`${g.id}|${g.date}|${g.players?.length||0}`).sort().join(';');
   return crypto.createHash('sha256').update(fingerprint).digest('hex');
 }
 function updateAudit(games,{force=false}={}){

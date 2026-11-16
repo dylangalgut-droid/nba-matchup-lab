@@ -15,6 +15,8 @@ const TEAMS = [
 ].map(([abbr,name])=>({abbr,name}));
 const TEAM_ALIASES = {GS:'GSW',GOLDENSTATE:'GSW',NY:'NYK',NO:'NOP',SA:'SAS',UTAH:'UTA',WSH:'WAS',PHO:'PHX',BKN:'BKN'};
 const ROLES = {
+  G: ['Pass-first guard','Scoring guard','Off-ball guard'],
+  F: ['Playmaking forward','Scoring forward','Floor-spacing forward','Rebounding forward','Utility forward'],
   PG: ['Pass-first PG','Scoring PG','Combo PG'],
   SG: ['Playmaking SG','High-volume SG','Off-ball SG'],
   SF: ['Point forward','Scoring wing','Floor-spacing wing','Utility wing'],
@@ -44,7 +46,9 @@ function dateRange(start,end) {
 }
 function positionOf(v) {
   const str=String(v||'').toUpperCase().replace(/[^A-Z]/g,'');
-  if(['PG','SG','SF','PF','C'].includes(str)) return str;
+  if(['G','F','PG','SG','SF','PF','C'].includes(str)) return str;
+  if(str==='GUARD')return 'G';
+  if(str==='FORWARD')return 'F';
   if(str==='POINTGUARD')return 'PG';
   if(str==='SHOOTINGGUARD')return 'SG';
   if(str==='SMALLFORWARD')return 'SF';
@@ -55,6 +59,8 @@ function positionOf(v) {
 function roleFor(p) {
   const a=p.avg||{}; const pts=a.pts||0,reb=a.reb||0,ast=a.ast||0,three=a.threeAtt||0;
   switch(p.position) {
+    case 'G': return ast>=4.5?'Pass-first guard':pts>=16?'Scoring guard':'Off-ball guard';
+    case 'F': return ast>=4.3?'Playmaking forward':pts>=17.5?'Scoring forward':three>=3.5?'Floor-spacing forward':reb>=7?'Rebounding forward':'Utility forward';
     case 'PG': return ast>=6.2 && ast>=pts*.27?'Pass-first PG':pts>=18?'Scoring PG':'Combo PG';
     case 'SG': return ast>=4.5?'Playmaking SG':pts>=16?'High-volume SG':'Off-ball SG';
     case 'SF': return ast>=4.5?'Point forward':pts>=17.5?'Scoring wing':three>=3.5?'Floor-spacing wing':'Utility wing';

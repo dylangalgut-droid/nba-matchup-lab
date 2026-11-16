@@ -46,3 +46,5 @@ test('Generates per-role defensive allowed stats and excludes reported out match
   const withInjury=buildAnalysis(games,next,{available:true,records:[{team:'BOS',id:'101',name:'Sample Passer',status:'INJURY_STATUS_OUT'}]});
   assert.equal(withInjury.matches[0].players.some(x=>x.id==='101'),false);
 });
+
+test("ESPN broad position labels are retained without inventing specific positions",()=>{const {positionOf,roleFor}=require("../analysis"); assert.equal(positionOf("G"),"G"); assert.equal(positionOf("Forward"),"F"); assert.equal(roleFor({position:"G",avg:{ast:7,pts:20}}),"Pass-first guard"); assert.equal(roleFor({position:"F",avg:{ast:2,pts:22}}),"Scoring forward");});
