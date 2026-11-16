@@ -33,6 +33,8 @@ const app = require('../server');
   // Avoid presenting yesterday’s schedule as tomorrow’s when an update is overdue.
   js=js.replace('state.data=await r.json();renderMeta();render();', `state.data=await r.json();renderMeta();render();if(Date.now()-Date.parse(state.data.lastUpdated)>18*3600000)showError('The latest NBA update is more than 18 hours old. Check the displayed matchup date before using these ratings.');`);
   fs.writeFileSync(path.join(out,'app.js'),js);
+  const version=require('node:crypto').createHash('sha256').update(js).digest('hex').slice(0,12);
+  fs.writeFileSync(path.join(out,'index.html'),html.replace('./app.js', './app.js?v='+version).replace('./style.css','./style.css?v='+version));
   fs.writeFileSync(path.join(out,'.nojekyll'),'');
   console.log(JSON.stringify({lastUpdated:dashboard.lastUpdated, games:status.cacheGames, coverage:dashboard.coverage, targetDate:dashboard.targetDate}));
 })().catch(e=>{console.error(e);process.exitCode=1;});
