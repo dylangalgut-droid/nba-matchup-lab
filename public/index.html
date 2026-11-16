@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080f1b">
+  <meta name="description" content="Live NBA role-based defensive allowances and next-day player matchup analysis for points, rebounds and assists.">
+  <title>Matchup Lab — NBA Defensive Intelligence</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="site">
+    <aside class="rail">
+      <a class="identity" href="/" aria-label="NBA Matchup Lab"><span class="identity-icon">M<span class="identity-dot"></span></span><span class="identity-text">MATCHUP<span>LAB</span><small>NBA INTELLIGENCE</small></span></a>
+      <div class="rail-title">WORKSPACE</div>
+      <nav class="sidebar-nav" aria-label="Main navigation">
+        <button class="nav-link active" data-page="defence"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M3 20V9m6 11V4m6 16v-7m6 7V8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span>Defence by role</span></button>
+        <button class="nav-link" data-page="matchups"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="m3 7 8-4 10 4v9l-10 5-8-5V7Zm8-4v9m-8-5 8 5 10-5m-10 5v9" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span><span>Next-day matchups</span><span class="nav-counter" id="nav-count">0</span></button>
+        <button class="nav-link" data-page="performance"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M3 20V11h5v9H3Zm7 0V5h5v15h-5Zm7 0v-8h4v8h-4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span><span>Model performance</span></button>
+      </nav>
+      <div class="rail-split"></div>
+      <div class="rail-title">MODEL INPUTS</div>
+      <div class="source-block"><span class="source-dot"></span>ESPN game box scores</div>
+      <div class="source-block"><span class="source-dot"></span>ESPN injury updates</div>
+      <div class="source-block"><span class="source-dot"></span>Player role classification</div>
+      <div class="rail-footer"><span class="rail-footer-icon">◎</span><div>2026–27 season<br><span>Hosted or local · Persistent sync</span></div></div>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <div class="crumb"><span>NBA / ANALYTICS</span><span class="chev">›</span><strong id="crumb-page">Defence by role</strong></div>
+        <div class="top-actions"><span class="live-pill" id="live-pill"><span></span>NOT SYNCED</span><button class="refresh-btn" id="refresh-btn" type="button"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6.2 8A7 7 0 0 1 18 6.6L20 12M4 12l2 5.4A7 7 0 0 0 17.8 16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="refresh-text">Refresh data</span></button></div>
+      </header>
+      <div class="content">
+        <div id="sync-panel" class="sync-panel hidden" aria-live="polite"><div class="sync-meta"><div><span class="smallcaps">DATA SYNC</span><strong id="sync-title">Connecting to box scores…</strong></div><span id="sync-count">0 / 0</span></div><div class="progress"><div id="sync-bar"></div></div><p id="sync-detail">The first sync imports recent games. Later updates only download new box scores.</p></div>
+        <div id="error-banner" class="error-banner hidden" role="alert"></div>
+        <section class="page" id="page-defence">
+          <div class="hero"><div class="eyebrow"><span class="eyebrow-rule"></span>DEFENSIVE MATCHUP INTELLIGENCE</div><h1>Defence, <em>decoded by role.</em></h1><p>Go deeper than PG, SG and C. Discover exactly what each NBA team allows to pass-first creators, scoring wings, floor-spacing forwards, playmaking centres and more.</p></div>
+          <div class="metric-strip"><div class="metric-item"><div class="metric-title">TEAMS TRACKED</div><div class="metric-value" id="metric-teams">30 <span>NBA</span></div></div><div class="metric-item"><div class="metric-title">GAMES ANALYSED</div><div class="metric-value" id="metric-games">— <span>final</span></div></div><div class="metric-item"><div class="metric-title">PLAYERS TRACKED</div><div class="metric-value" id="metric-players">— <span>active</span></div></div><div class="metric-item"><div class="metric-title">SEASON WINDOW</div><div class="metric-value date" id="metric-window">Not synced</div></div></div>
+          <div class="section-grid">
+            <section class="panel team-panel">
+              <div class="panel-head"><div><div class="section-kicker">01 / TEAM EXPLORER</div><h2>Explore an opponent</h2></div><span class="head-tag">30 TEAMS</span></div>
+              <div class="team-search"><svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="m16 16 5 5" stroke="currentColor" stroke-width="2"/></svg><input id="team-search" placeholder="Search teams…" autocomplete="off" aria-label="Search NBA teams"></div>
+              <div class="teams-list" id="teams-list" role="listbox" aria-label="NBA teams"></div>
+            </section>
+            <section class="panel data-panel">
+              <div class="panel-head"><div><div class="section-kicker">02 / DEFENSIVE PROFILE</div><h2><span id="selected-team-label">Boston Celtics</span> <span class="secondary-title">— allowed by role</span></h2></div><div class="pill-count" id="selected-team-games">0 games</div></div>
+              <div class="table-controls"><div class="tabs" id="stat-tabs" role="group" aria-label="Statistic"><button class="active" data-stat="pts">Points</button><button data-stat="reb">Rebounds</button><button data-stat="ast">Assists</button></div><label class="small-select-label">Position <select id="pos-filter" aria-label="Filter position"><option value="ALL">All positions</option><option value="PG">PG</option><option value="SG">SG</option><option value="SF">SF</option><option value="PF">PF</option><option value="C">C</option></select></label></div>
+              <div class="table-scroll"><table class="allow-table"><thead><tr><th>PLAYER ARCHETYPE</th><th class="numeric">PTS</th><th class="numeric">REB</th><th class="numeric">AST</th><th class="numeric">VS LEAGUE <span class="info-hint" title="Role/position-adjusted per-36 allowance versus NBA-wide baseline">ⓘ</span></th><th class="numeric">SAMPLE</th></tr></thead><tbody id="allow-body"></tbody></table></div>
+              <div class="table-bottom"><div class="legend"><span><i class="legend-positive"></i> Easier matchup</span><span><i class="legend-negative"></i> Tougher matchup</span></div><span class="footnote">Averages per opposing player-game · 6+ minutes</span></div>
+            </section>
+          </div>
+          <section class="panel leaderboard-panel"><div class="panel-head"><div><div class="section-kicker">03 / LEAGUE COMPARISON</div><h2>Who gives up the most?</h2></div><span class="head-tag" id="leaderboard-context">ALL 30 TEAMS</span></div><div class="lead-controls"><label>Player role <select id="role-filter" aria-label="Choose player role"></select></label><span>Ranked by <strong id="rank-stat-label">points</strong> allowed per eligible opposing player game</span></div><div class="rank-grid" id="rank-grid"></div></section>
+        </section>
+        <section class="page hidden" id="page-matchups">
+          <div class="hero matchup-hero"><div class="eyebrow"><span class="eyebrow-rule"></span>TOMORROW'S OPPORTUNITIES</div><h1>Find the <em>mismatches.</em></h1><p>Every next-day game analysed against player archetype, recent scoring profiles and injury-informed opportunities.</p><div class="date-tile"><div class="calendar-symbol">▦</div><div><span>AUSTRALIA / MELBOURNE</span><strong id="tomorrow-date">Tomorrow</strong></div><span class="date-tag">NEXT DAY</span></div></div>
+          <div class="match-summary"><div><div class="metric-title">GAMES ON SLATE</div><strong id="stat-slate">—</strong></div><div><div class="metric-title">STRONG SIGNALS</div><strong id="stat-strong">—</strong></div><div><div class="metric-title">OTHER MATCHUP EDGES</div><strong id="stat-edges">—</strong></div><div><div class="metric-title">INJURY REPORT</div><strong class="small-status" id="stat-injuries">Not checked</strong></div></div>
+          <section class="panel signal-panel"><div class="panel-head"><div><div class="section-kicker">01 / PLAYER MATCHUP SCANNER</div><h2>Tomorrow’s matchup signals</h2></div><div class="signal-legend"><span><i class="legend-positive"></i>Favourable</span><span><i class="legend-negative"></i>Unfavourable</span></div></div>
+            <div class="match-filter-bar"><div class="tabs" id="match-tabs"><button class="active" data-matchfilter="all">All signals</button><button data-matchfilter="strong">Severe only</button><button data-matchfilter="positive">Favourable</button><button data-matchfilter="negative">Unfavourable</button></div><select id="game-filter" aria-label="Filter game"><option value="ALL">All matchups</option></select></div>
+            <div id="matchup-content" class="matchup-content"></div>
+          </section>
+          <section class="panel explainer-panel"><div class="section-kicker">02 / HOW MATCHUPS ARE SCORED</div><h2>Context beyond raw position</h2><div class="method-grid"><div><span class="method-number">01</span><strong>Player role</strong><p>Classify from season production and actual NBA position: creator, scorer, floor-spacing big and more.</p></div><div><span class="method-number">02</span><strong>Opponent allowance</strong><p>Compare opponents' per-36 role allowances with league norms; shrink small samples toward neutral.</p></div><div><span class="method-number">03</span><strong>Injury impact</strong><p>Account for out players using historical on/off samples when sufficient evidence exists; otherwise show a caution.</p></div></div></section>
+        </section>
+        <section class="page hidden" id="page-performance">
+          <div class="hero"><div class="eyebrow"><span class="eyebrow-rule"></span>HISTORICAL PREDICTIVE AUDIT</div><h1>Tested, <em>not assumed.</em></h1><p>Chronological backtesting against actual player box scores. Weights are trained using earlier games, then evaluated on later dates without using future outcomes in predictions.</p></div>
+          <div class="performance-actions"><div id="performance-summary" class="performance-summary">Import historical games to calculate predictive accuracy.</div><button class="refresh-btn" type="button" id="audit-refresh">Recalculate backtest</button></div>
+          <section class="panel performance-panel"><div class="panel-head"><div><div class="section-kicker">01 / OUT-OF-SAMPLE ACCURACY</div><h2>Points, rebounds &amp; assists</h2></div><span class="head-tag">HOLDOUT DATA</span></div><div id="performance-metrics" class="performance-grid"></div></section>
+          <section class="panel performance-panel"><div class="panel-head"><div><div class="section-kicker">02 / MODEL DISCIPLINE</div><h2>Methodology &amp; limitations</h2></div></div><div id="performance-notes" class="performance-notes"></div></section>
+        </section>
+        <footer class="footer"><span>NBA MATCHUP LAB <b>·</b> DEFENSIVE ANALYTICS</span><span id="footer-update">Data not yet synced</span><span id="coverage-footer">Unverified feeds may be delayed. Estimates are not betting guarantees.</span></footer>
+      </div>
+    </main>
+  </div>
+  <script src="/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+.data/
+node_modules/
+.env
+.env.*
+!.env.example
+.railway/cache/
+*.log
+*.zip
+
+dist/

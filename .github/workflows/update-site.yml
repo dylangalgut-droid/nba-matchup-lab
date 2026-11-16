@@ -1,0 +1,48 @@
+name: Update NBA data and publish
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['data/**']
+  schedule:
+    - cron: '23 0,12 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: nba-pages
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test
+        run: npm test
+      - name: Retrieve NBA box scores and build
+        run: npm run build
+      - name: Save verified NBA cache
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/
+          if ! git diff --cached --quiet; then
+            git commit -m 'Update NBA data'
+            git push
+          fi
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+      - name: Publish
+        id: deployment
+        uses: actions/deploy-pages@v4
