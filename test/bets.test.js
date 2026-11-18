@@ -10,3 +10,21 @@ test('Live and missing box scores never settle automatically',()=>{assert.equal(
 test('Multi is one bet; all legs must win and void legs require review',()=>{const m={...bet,type:'multi',odds:3,legs:[leg,{...leg,stat:'reb',line:8}]};assert.equal(E.settle(m,games).profit,4);assert.equal(E.settle({...m,legs:[leg,{...leg,stat:'reb',line:9}]},games).status,'lost');assert.equal(E.settle({...m,legs:[leg,{...leg,stat:'reb',line:8,op:'over'}]},games).status,'review');const t=E.totals([m],{b:E.settle(m,games)});assert.equal(t.won,1);});
 test('Daily totals use bet date; pending and void have zero profit',()=>{const bets=[bet,{...bet,id:'c',date:'2026-11-19',manual:{status:'lost',profit:-2}},{...bet,id:'v',manual:{status:'void',profit:0}},{...bet,id:'p',legs:[{...leg,gameId:'unknown'}]}];const r=Object.fromEntries(bets.map(b=>[b.id,E.settle(b,games)]));assert.equal(E.totals(bets,r,'2026-11-18').profit,1.8);assert.equal(E.totals(bets,r).profit,-.2);assert.equal(E.totals(bets,r).pending,1);assert.equal(E.totals(bets,r).void,1);});
 test('Manual return overrides automatic results and malformed backups fail validation',()=>{assert.equal(E.settle({...bet,manual:{status:'won',profit:.5}},games).profit,.5);assert(E.valid(bet));assert(!E.valid({...bet,odds:0}));assert(!E.valid({...bet,stake:-1}));assert(!E.valid({...bet,legs:[{...leg,stat:'oops'}]}));assert(!E.valid({...bet,manual:{status:'won',profit:NaN}}));});
+
+test('Combined player markets validate and settle summed totals with exact thresholds',()=>{
+ for(const [stat,total] of [['pts+ast',25],['pts+reb',28],['reb+ast',13]]){
+  const b={...bet,legs:[{...leg,stat,line:total}]};assert(E.valid(b));
+  const r=E.settle(b,games);assert.equal(r.status,'won');assert.equal(r.legs[0].value,total);assert.equal(r.profit,1.8);
+  assert.equal(E.settle({...b,legs:[{...b.legs[0],line:total+.5}]},games).status,'lost');
+  assert.equal(E.settle({...b,legs:[{...b.legs[0],op:'under',line:total+.5}]},games).status,'won');
+  assert.equal(E.settle({...b,legs:[{...b.legs[0],op:'over'}]},games).status,'review');
+ }
+});
+test('Combined markets require all components and final minutes, including in multis',()=>{
+ const combined={...leg,stat:'pts+ast',line:25};
+ assert.equal(E.legResult(combined,{g:{completed:true,players:[{id:'p',min:30,pts:25}]}}).status,'review');
+ assert.equal(E.legResult(combined,{g:{...games.g,completed:false}}).status,'pending');
+ assert.equal(E.legResult(combined,{g:{completed:true,players:[{id:'p',min:0,pts:20,ast:5}]}}).status,'review');
+ assert.equal(E.settle({...bet,type:'multi',legs:[combined,{...leg,stat:'reb+ast',line:13}]},games).status,'won');
+ assert(!E.valid({...bet,legs:[{...leg,stat:'toString'}]}));
+});
