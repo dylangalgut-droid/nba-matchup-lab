@@ -13,3 +13,27 @@ test('Heatmap is an additive raw allowance difference, not a percent or a projec
 
 test("Occasional bench appearances do not steal full rotation minutes",()=>{const {players,games}=fixture();const fringe=make("fringe",25);players.push(fringe);games[8].players.push({...fringe.lines[8],id:fringe.id,team:"BOS"});const o=buildOpportunity(players,"BOS",[],games);assert.equal(o.get("fringe").projectedMinutes,5);assert.equal(o.get("starter").projectedMinutes,35);});
 test('Today and tomorrow remain visible, including finished games without new predictions',()=>{const {games}=fixture();const fixtures=[{id:'today',date:'2026-11-10T00:00Z',home:'BOS',away:'NYK',completed:true},{id:'tomorrow',date:'2026-11-11T00:00Z',home:'BOS',away:'NYK',completed:false}];const d=buildAnalysis(games,fixtures,{}, {includeCompleted:true});assert.deepEqual(d.matches.map(g=>g.id),['today','tomorrow']);assert.deepEqual(d.matches[0].players,[]);});
+
+test('Heatmap roster includes unflagged bench players and labels injuries without changing signals',()=>{
+ const {games,outs}=fixture();
+ const d=buildAnalysis(games,[{id:'next',date:'2026-11-11T00:00:00Z',home:'BOS',away:'NYK'}],{records:outs});
+ const roster=d.matches[0].rolePlayers;
+ assert(roster.some(p=>p.id==='backup'));
+ assert.equal(roster.find(p=>p.id==='star').injury.status,'out');
+ assert(roster.every(p=>p.position&&p.role));
+ const final=buildAnalysis(games,[games[9]],{}, {includeCompleted:true}).matches[0];
+ assert.equal(final.rolePlayersSource,'Final box score');assert.equal(final.players.length,0);assert.equal(final.rolePlayers.length,3);
+});
+
+test('Heatmap cell matches only opposition position and role independently of signal strength',()=>{
+ const vm=require('node:vm'),fs=require('node:fs');const ctx=vm.createContext({});
+ vm.runInContext(fs.readFileSync(require.resolve('../public/app.js'),'utf8').split('(async()=>{bind();')[0],ctx);
+ ctx.game={home:'BOS',away:'NYK',rolePlayers:[
+ {id:'neutral',team:'NYK',position:'G',role:'Scoring guard'},
+ {id:'other-role',team:'NYK',position:'G',role:'Pass-first guard'},
+ {id:'same-team',team:'BOS',position:'G',role:'Scoring guard'},
+ {id:'other-position',team:'NYK',position:'F',role:'Scoring forward'}]};
+ assert.equal(vm.runInContext("heatmapPlayers(game,'BOS','G','Scoring guard').map(p=>p.id).join(',')",ctx),'neutral');
+ assert.equal(vm.runInContext("heatmapPlayers(game,'BOS','G','All Gs').length",ctx),2);
+ assert.equal(vm.runInContext("heatmapPlayers(game,'NYK','G','Scoring guard')[0].id",ctx),'same-team');
+});

@@ -1,6 +1,6 @@
 'use strict';
 const $=id=>document.getElementById(id);
-const state={page:'defence',team:'BOS',stat:'pts',position:'ALL',role:'Pass-first guard',matchFilter:'all',gameFilter:'ALL',day:null,data:null,status:null,audit:null};
+const state={page:'defence',team:'BOS',stat:'pts',position:'ALL',role:'Pass-first guard',matchFilter:'all',gameFilter:'ALL',day:null,heatmapDay:null,heatmapSelection:null,data:null,status:null,audit:null};
 const LABEL={pts:'points',reb:'rebounds',ast:'assists'};
 const SAFE=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=n=>Number.isFinite(Number(n))?Number(n).toFixed(1):'—';
@@ -39,6 +39,11 @@ const EAST=new Set(['ATL','BOS','BKN','CHA','CHI','CLE','DET','IND','MIA','MIL',
 function signed(n){return `${n>0?'+':''}${fmt(n)}`;}
 function renderDefence(){
   const d=state.data;if(!d)return;
+  state.heatmapSelection=null;
+  const dates=d.slateDates||[d.targetDate];
+  if(!dates.includes(state.heatmapDay))state.heatmapDay=dates[0];
+  $('heatmap-day').innerHTML=dates.map((date,i)=>`<option value="${SAFE(date)}">${i===0?'Today':'Tomorrow'} · ${shortDate(date)}</option>`).join('');
+  $('heatmap-day').value=state.heatmapDay;
   const conference=$('conference-filter').value;
   const teams=d.teams.filter(t=>conference==='ALL'||EAST.has(t.abbr)===(conference==='EAST'));
   const roles=d.roles.filter(r=>(state.position==='ALL'||r.position===state.position)&&d.teams.some(t=>(d.teamData[t.abbr]||[]).some(x=>x.role===r.role&&x.n>0)));
@@ -52,13 +57,30 @@ function renderDefence(){
     const color=value>0?`rgba(0,190,110,${.15+.7*intensity})`:value<0?`rgba(226,25,66,${.15+.7*intensity})`:'rgba(180,148,35,.18)';
     const label=value===null?'—':signed(value);
     const tip=value===null?'No observed sample':`${t.name} / ${role.role}: ${label} ${unit}. Team ${fmt(r[state.stat])}; league ${fmt(r.league[state.stat])}; ${n} player-games across ${r.games} games.${n<5?' Small sample.':''}`;
-    return `<td><button class="heatmap-cell ${n<5?'small-sample':''}" style="background:${color}" data-team="${SAFE(t.abbr)}" data-role="${SAFE(role.role)}" title="${SAFE(tip)}" aria-label="${SAFE(tip)}">${label}</button></td>`;
+    return `<td><button class="heatmap-cell ${n<5?'small-sample':''}" style="background:${color}" data-team="${SAFE(t.abbr)}" data-role="${SAFE(role.role)}" data-position="${SAFE(role.position)}" title="${SAFE(tip)}" aria-label="${SAFE(tip)}">${label}</button></td>`;
   }).join('')}</tr>`).join('');
   $('heatmap-table').innerHTML=header+'<tbody>'+ (rows||`<tr><td colspan="${teams.length+1}" class="empty-panel">No data for this position. Try Guards, Forwards or Centres.</td></tr>` )+'</tbody>';
   $('heatmap-table').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
-    $('heatmap-table').querySelectorAll('.selected-cell').forEach(c=>c.classList.remove('selected-cell'));b.classList.add('selected-cell');$('heatmap-detail').textContent=b.title;
+    $('heatmap-table').querySelectorAll('.selected-cell').forEach(c=>c.classList.remove('selected-cell'));b.classList.add('selected-cell');state.heatmapSelection={team:b.dataset.team,role:b.dataset.role,position:b.dataset.position,title:b.title};renderHeatmapPlayers();$('heatmap-detail').scrollIntoView({behavior:'smooth',block:'nearest'});
   }));
-  $('heatmap-detail').textContent='Select any cell to inspect its averages.';
+  renderHeatmapPlayers();
+}
+function heatmapPlayers(game,team,position,role){
+  const opponent=game.home===team?game.away:game.home;
+  return (game.rolePlayers||[]).filter(p=>p.team===opponent&&p.position===position&&(role===`All ${position}s`||p.role===role));
+}
+function renderHeatmapPlayers(){
+  const box=$('heatmap-detail'),pick=state.heatmapSelection;
+  if(!pick){box.textContent='Select any number to see matching opposition players for the chosen day.';return;}
+  const dayOf=s=>new Intl.DateTimeFormat('en-CA',{timeZone:'Australia/Melbourne',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(s));
+  const games=(state.data.matches||[]).filter(g=>[g.home,g.away].includes(pick.team)&&dayOf(g.date)===state.heatmapDay);
+  box.innerHTML=`<strong>${SAFE(pick.team)} · ${SAFE(pick.position)} / ${SAFE(pick.role)} · ${shortDate(state.heatmapDay)}</strong><p>${SAFE(pick.title)}</p>`+
+    (!games.length?`<p>${SAFE(pick.team)} have no game on this day.</p>`:games.map(g=>{
+      const players=heatmapPlayers(g,pick.team,pick.position,pick.role);
+      return `<p><strong>${SAFE(g.away)} @ ${SAFE(g.home)}</strong> · ${g.completed?'Final':melTime(g.date)+' Melbourne'}</p>`+
+        (players.length?`<ul>${players.map(p=>`<li><strong>${SAFE(p.name)}</strong> · ${SAFE(p.team)} · ${SAFE(p.position)} / ${SAFE(p.role)} · ${fmt(p.avg[state.stat])} ${LABEL[state.stat]} average${p.injury?' · '+SAFE(p.injury.status):''}</li>`).join('')}</ul>`:'<p>No matching opposition players in the available roster data.</p>')+
+        `<small>${SAFE(g.rolePlayersSource||'Recent roster')}: includes all matching roles, regardless of favourable, neutral or unfavourable signals${g.completed?'':'; availability and minutes are not confirmed'}.</small>`;
+    }).join(''));
 }
 function filterStats(p){
   const x=Object.values(p.stats||{});
@@ -221,6 +243,7 @@ function bind(){
   document.querySelectorAll('.nav-link').forEach(b=>b.addEventListener('click',()=>setPage(b.dataset.page)));
   document.querySelectorAll('#stat-tabs button').forEach(b=>b.addEventListener('click',()=>{state.stat=b.dataset.stat;document.querySelectorAll('#stat-tabs button').forEach(x=>x.classList.toggle('active',x===b));renderDefence()}));
   document.querySelectorAll('#match-tabs button').forEach(b=>b.addEventListener('click',()=>{state.matchFilter=b.dataset.matchfilter;document.querySelectorAll('#match-tabs button').forEach(x=>x.classList.toggle('active',x===b));renderMatchups()}));
+  $('heatmap-day').addEventListener('change',e=>{state.heatmapDay=e.target.value;renderHeatmapPlayers();});
   $('conference-filter').addEventListener('change',renderDefence);
   $('pos-filter').addEventListener('change',e=>{state.position=e.target.value;renderDefence();});
   $('day-filter').addEventListener('change',e=>{state.day=e.target.value;state.gameFilter='ALL';renderMatchups();});

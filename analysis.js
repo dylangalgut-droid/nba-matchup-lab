@@ -182,6 +182,15 @@ function buildAnalysis(games, upcoming=[], injuryInfo={available:false,records:[
   const future=upcoming.filter(g=>(options.includeCompleted||!g.completed) && g.home && g.away);
   for(const game of future){
     const result={...game,players:[],injuries:[...(injuryByTeam[game.home]||[]),...(injuryByTeam[game.away]||[])]};
+    // Separate roster lookup from signal thresholds: neutral and bench players belong here too.
+    const finalBox=game.completed?all.find(g=>String(g.id)===String(game.id)):null;
+    result.rolePlayers=players.filter(p=>[game.home,game.away].includes(p.team)&&
+      (finalBox?finalBox.players.some(x=>String(x.id)===p.id&&x.team===p.team&&x.min>0):
+        Date.parse(game.date)-Date.parse(p.lastPlayed)<15*86400000)).map(p=>({
+      id:p.id,name:p.name,team:p.team,position:p.position,role:p.role,avg:p.avg,
+      injury:game.completed?null:injuries.find(i=>(i.id&&String(i.id)===p.id)||(!i.id&&i.team===p.team&&i.name.toLowerCase()===p.name.toLowerCase()))||null
+    }));
+    result.rolePlayersSource=finalBox?'Final box score':'Recent roster';
     if(game.completed){matches.push(result);continue;}
     for(const offensive of [game.home,game.away]){
       const defensive=offensive===game.home?game.away:game.home;
