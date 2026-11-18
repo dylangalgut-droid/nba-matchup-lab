@@ -62,7 +62,9 @@ function buildOpportunity(players,team,outs,games,{fresh=true,gameDate}={}){
 }
 function combineProjection(player,stat,environment,opportunity,weights){
  const base=player.avg[stat],o=opportunity;
- const minuteRatio=o.projectedMinutes/Math.max(1,player.avg.min);
+ // Shrink volatile minutes estimates toward the established baseline. Matchup and
+ // injury-driven per-minute usage retain their existing evidence-based adjustments.
+ const minuteRatio=1+clamp((o.projectedMinutes/Math.max(1,player.avg.min)-1)*.6,-.2,.2);
  const recent=rate(player.lines.slice(-5),stat),season=rate(player.lines,stat);
  const form=season>0?clamp(recent/season-1,-.5,.5)*(weights?.recent??.2):0;
  const minuteValue=base*minuteRatio;

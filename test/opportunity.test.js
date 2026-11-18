@@ -37,3 +37,18 @@ test('Heatmap cell matches only opposition position and role independently of si
  assert.equal(vm.runInContext("heatmapPlayers(game,'BOS','G','All Gs').length",ctx),2);
  assert.equal(vm.runInContext("heatmapPlayers(game,'NYK','G','Scoring guard')[0].id",ctx),'same-team');
 });
+
+test('Minutes volatility is damped and capped while matchup and injury usage retain full influence',()=>{
+ const p=make('guard',30,20);
+ const estimate=min=>({projectedMinutes:min,rates:{pts:.1}});
+ const r=combineProjection(p,'pts',{matchup:.1},estimate(36),{recent:0});
+ assert(Math.abs(r.components.minutes-2.4)<1e-9); // 20% extra minutes becomes 12% output
+ assert(Math.abs(r.components.injury-2.24)<1e-9); // full 10% usage change
+ assert(Math.abs(r.components.matchup-2.464)<1e-9); // full 10% matchup change
+ const high=combineProjection(p,'pts',{matchup:0},estimate(60),{recent:0});
+ const low=combineProjection(p,'pts',{matchup:0},estimate(5),{recent:0});
+ assert(Math.abs(high.components.minutes-4)<1e-9);
+ assert(Math.abs(low.components.minutes+4)<1e-9);
+ const flat=combineProjection(p,'pts',{matchup:0},{projectedMinutes:30,rates:{pts:0}},{recent:0});
+ assert.equal(flat.projection,20);
+});

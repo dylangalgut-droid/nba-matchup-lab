@@ -120,7 +120,7 @@ function reasons(p,opponent){
   const stats=Object.entries(p.stats).filter(([,x])=>['positive','negative','strong-positive','strong-negative'].includes(x.level)).sort((a,b)=>Math.abs(b[1].edge)-Math.abs(a[1].edge));
   const notes=[];const c=p.context;
   for(const [key,x] of stats)notes.push(`<strong>Why ${LABEL[key]}:</strong> ${SAFE(selectionExplanation(p,opponent,key,x))}`);
-  if(c)notes.push(`<strong>Estimated minutes: ${fmt(c.projectedMinutes)}</strong> · last five ${fmt(c.recentMinutes)} · season ${fmt(c.baselineMinutes)}. ${c.budgetAdjusted?'Adjusted to the team’s 240-minute budget.':''}`);
+  if(c)notes.push(`<strong>Estimated minutes: ${fmt(c.projectedMinutes)}</strong> · last five ${fmt(c.recentMinutes)} · season ${fmt(c.baselineMinutes)}. Minutes changes receive 60% weight, capped at ±20% of baseline output; matchup and injury-related usage adjustments retain full weight. ${c.budgetAdjusted?'Adjusted to the team’s 240-minute budget.':''}`);
   for(const [key,x]of stats.slice(0,2)){
     notes.push(`<strong>${x.edge>0?'Favourable':'Unfavourable'} ${LABEL[key]}:</strong> ${fmt(x.projection)} projected vs ${fmt(x.base)} season average (${signed(x.delta??x.projection-x.base)}).`);
     if(x.components)notes.push(`<span class="component-breakdown">${Object.entries(x.components).map(([k,v])=>`${{minutes:'Minutes',form:'Recent rate',injury:'Injury / role',matchup:'Defence & pace'}[k]} ${signed(v)}`).join(' · ')}</span>`);
