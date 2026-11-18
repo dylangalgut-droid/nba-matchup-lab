@@ -1,5 +1,6 @@
 'use strict';
 
+const {buildOpportunity,combineProjection}=require('./opportunity');
 const ZONE = 'Australia/Melbourne';
 const STATS = ['pts', 'reb', 'ast'];
 const {defaultModel,projection,clamp} = require('./model');
@@ -118,7 +119,7 @@ function buildAnalysis(games, upcoming=[], injuryInfo={available:false,records:[
       let p=playerMap.get(String(x.id));
       if(!p){p={id:String(x.id),name:x.name,team:normTeam(x.team),position:pos,lines:[],teamHistory:new Set()};playerMap.set(String(x.id),p);}
       p.name=x.name||p.name;p.team=normTeam(x.team);p.position=pos;
-      const row={id:String(x.id),name:p.name,team:normTeam(x.team),opponent:normTeam(x.opponent),position:pos,gameId:g.id,date:g.date,min:x.min,pts:x.pts,reb:x.reb,ast:x.ast,threeAtt:x.threeAtt||0};
+      const row={id:String(x.id),name:p.name,team:normTeam(x.team),opponent:normTeam(x.opponent),position:pos,gameId:g.id,date:g.date,min:x.min,pts:x.pts,reb:x.reb,ast:x.ast,threeAtt:x.threeAtt||0,fga:x.fga||0,fta:x.fta||0};
       p.lines.push(row);p.teamHistory.add(row.team);
       perGameMap.set(`${g.id}|${x.id}`,row);
       if(!teamSets.has(row.team))teamSets.set(row.team,new Set());
@@ -169,9 +170,9 @@ function buildAnalysis(games, upcoming=[], injuryInfo={available:false,records:[
       const l=league[`*|${position}|${purePosition?'*':role}`]||null;
       const pos=allowed[`${t.abbr}|${position}|*`]||null;
       const lp=league[`*|${position}|*`]||null;
-      const vs={};
-      for(const k of STATS)vs[k]=round(100*(contextRatio(a,l,pos,lp,k)-1),1);
-      arr.push({position,role,...(a||{n:0,games:0,players:0,pts:0,reb:0,ast:0,per36:{pts:0,reb:0,ast:0}}),vs,league:l||null,positionSample:pos?.n||0});
+      const vs={},delta={};
+      for(const k of STATS){vs[k]=round(100*(contextRatio(a,l,pos,lp,k)-1),1);delta[k]=a&&l?round(a[k]-l[k],1):null;}
+      arr.push({position,role,...(a||{n:0,games:0,players:0,pts:0,reb:0,ast:0,per36:{pts:0,reb:0,ast:0}}),vs,delta,league:l||null,positionSample:pos?.n||0});
     }
     teamData[t.abbr]=arr;
   }
@@ -183,13 +184,18 @@ function buildAnalysis(games, upcoming=[], injuryInfo={available:false,records:[
     const result={...game,players:[],injuries:[...(injuryByTeam[game.home]||[]),...(injuryByTeam[game.away]||[])]};
     for(const offensive of [game.home,game.away]){
       const defensive=offensive===game.home?game.away:game.home;
-      const starters=players.filter(p=>p.team===offensive && p.n>=3 && p.avg.min>=16);
+      const teamOuts=(injuryByTeam[offensive]||[]).filter(i=>['out','doubtful'].includes(i.status));
+      const asOf=Date.parse(options.asOf||new Date().toISOString());
+      const fresh=!!injuryInfo.available&&Number.isFinite(Date.parse(injuryInfo.fetchedAt))&&asOf-Date.parse(injuryInfo.fetchedAt)>=0&&asOf-Date.parse(injuryInfo.fetchedAt)<24*3600000;
+      const opportunity=options.skipInjury?new Map():buildOpportunity(players,offensive,teamOuts,all,{fresh,gameDate:game.date});
+      const starters=players.filter(p=>p.team===offensive && p.n>=3 && (options.skipInjury?p.avg.min>=16:(opportunity.get(p.id)?.projectedMinutes||0)>=16));
       const predictedPace=paceFeature(pace,offensive,defensive);
       for(const p of starters){
         const inj = injuries.find(i=>(i.id && i.id===p.id)||(!i.id&&i.team===offensive&&i.name.toLowerCase()===p.name.toLowerCase()));
         if(inj && ['out','doubtful'].includes(inj.status))continue;
         const defendingInjuries=(injuryByTeam[defensive]||[]).filter(i=>i.status==='out');
         const teammateInjuries=(injuryByTeam[offensive]||[]).filter(i=>i.status==='out'&&i.id!==p.id&&i.name.toLowerCase()!==p.name.toLowerCase());
+        const context=opportunity.get(p.id);
         const statLines={};
         for(const stat of STATS){
           const roleRow=allowed[`${defensive}|${p.position}|${p.role}`];
@@ -202,13 +208,16 @@ function buildAnalysis(games, upcoming=[], injuryInfo={available:false,records:[
           const feature={...roleFeatures(roleRow,roleLeague,posRow,posLeague,stat),
             recent:p.n>=5&&base>EPS?clamp(p.recent[stat]/base-1,-.5,.5):0,
             pace:predictedPace};
-          const injury=options.skipInjury?{delta:0,evidence:0}:calcTeammateAdjustment(p,stat,teammateInjuries,all,byTeamGame);
-          const defenseInj=options.skipInjury?{delta:0,evidence:0}:calcDefenseAdjustment(defensive,p,stat,defendingInjuries,all,perGameMap,byTeamGame);
-          const result=projection(base,feature,weights[stat],injury.delta+defenseInj.delta);
-          const enough = (sample>=5 || (posRow?.n||0)>=10) && p.n>=4;
-          const score=round(result.matchup*100,1);
-          const level=!enough?'limited':score>=17?'strong-positive':score>=10?'positive':score<=-17?'strong-negative':score<=-10?'negative':'neutral';
-          statLines[stat]={base:round(base),projection:round(result.projection),edge:score,totalEdge:round(result.total*100,1),formEdge:round(result.components.recent*100,1),paceEdge:round(result.components.pace*100,1),level,roleAllowed:roleRow?roleRow[stat]:null,leagueRole:roleLeague?roleLeague[stat]:null,roleN:sample,roleGames,positionN:posRow?.n||0,injuryDelta:round(injury.delta*100,1),defenseInjuryDelta:round(defenseInj.delta*100,1),injuryUsed:injury.evidence,defenseInjuryUsed:defenseInj.evidence,limited:!enough,features:feature};
+          const injury={delta:0,evidence:0}; // handled as minutes + per-minute opportunity, once
+          const defenseInj=options.skipInjury||!fresh?{delta:0,evidence:0}:calcDefenseAdjustment(defensive,p,stat,defendingInjuries,all,perGameMap,byTeamGame);
+          const environment=projection(base,{...feature,recent:0},weights[stat],defenseInj.delta);
+          const result=options.skipInjury?projection(base,feature,weights[stat]):combineProjection(p,stat,environment,context,weights[stat]);
+          const individual=options.skipInjury?0:Math.abs(result.components.minutes+result.components.form+result.components.injury)/Math.max(1,base);
+          const enough = p.n>=4 && ((sample>=5 || (posRow?.n||0)>=10)||individual>=.04);
+          const score=round((options.skipInjury?result.matchup:result.total)*100,1);
+          const meaningful=options.skipInjury||Math.abs(result.projection-base)>={pts:1.5,reb:.8,ast:.6}[stat];
+          const level=!enough?'limited':!meaningful?'neutral':score>=17?'strong-positive':score>=10?'positive':score<=-17?'strong-negative':score<=-10?'negative':'neutral';
+          statLines[stat]={base:round(base),projection:round(result.projection),edge:score,totalEdge:round(result.total*100,1),formEdge:round((options.skipInjury?result.components.recent:result.components.form/Math.max(1,base))*100,1),paceEdge:round(environment.components.pace*100,1),level,roleAllowed:roleRow?roleRow[stat]:null,leagueRole:roleLeague?roleLeague[stat]:null,roleN:sample,roleGames,positionN:posRow?.n||0,injuryDelta:round(injury.delta*100,1),defenseInjuryDelta:round(defenseInj.delta*100,1),injuryUsed:injury.evidence,defenseInjuryUsed:defenseInj.evidence,limited:!enough,features:feature,delta:round(result.projection-base),components:options.skipInjury?null:Object.fromEntries(Object.entries(result.components).map(([k,v])=>[k,round(v)])),defenseEdge:round(environment.matchup*100,1)};
         }
         const hasMajor=STATS.some(s=>['strong-positive','strong-negative'].includes(statLines[s].level));
         const hasSignal=STATS.some(s=>['strong-positive','positive','strong-negative','negative'].includes(statLines[s].level));
@@ -218,13 +227,13 @@ function buildAnalysis(games, upcoming=[], injuryInfo={available:false,records:[
           const x=statLines[stat];
           if(['strong-positive','strong-negative','positive','negative'].includes(x.level)){
             const compared=x.roleAllowed!=null?`${x.roleAllowed} ${stat.toUpperCase()} per player game to ${p.role}s (${x.roleN} observations)`:`limited role-specific history`;
-            notes.push(`${stat.toUpperCase()} ${x.edge>0?'+':''}${x.edge}% vs baseline: ${defensive} allow ${compared}`);
+            notes.push(`${stat.toUpperCase()} projected ${x.projection} vs ${x.base} baseline, including player minutes and opportunity. Opponent context: ${defensive} allow ${compared}`);
           }
         }
-        if(teammateInjuries.length)notes.push(`Reported out: ${teammateInjuries.slice(0,2).map(i=>i.name).join(', ')}${teammateInjuries.length>2?' + more':''}. Numerical injury adjustment only when comparable past on/off samples exist.`);
+        if(teammateInjuries.length)notes.push(`Reported out: ${teammateInjuries.slice(0,2).map(i=>i.name).join(', ')}${teammateInjuries.length>2?' + more':''}. Minutes and per-minute opportunity use observed splits or explicitly labelled estimates; existing absences are not boosted twice.`);
         if(defendingInjuries.length)notes.push(`${defensive} reported out: ${defendingInjuries.slice(0,2).map(i=>i.name).join(', ')}; defensive adjustment requires sufficient comparable games.`);
         if(inj && ['questionable','probable','day-to-day'].includes(inj.status))notes.push(`${p.name} is ${inj.status}: availability/minutes uncertain.`);
-        result.players.push({id:p.id,name:p.name,team:p.team,position:p.position,role:p.role,avg:p.avg,recent:p.recent,played:p.n,lastPlayed:p.lastPlayed,injury:inj||null,stats:statLines,major:hasMajor,maxEdge:Math.max(...STATS.map(s=>Math.abs(statLines[s].edge))),notes,teammateOut:teammateInjuries.map(i=>i.name)});
+        result.players.push({id:p.id,name:p.name,team:p.team,position:p.position,role:p.role,avg:p.avg,recent:p.recent,played:p.n,lastPlayed:p.lastPlayed,injury:inj||null,context:context||null,stats:statLines,major:hasMajor,maxEdge:Math.max(...STATS.map(s=>Math.abs(statLines[s].edge))),notes,teammateOut:teammateInjuries.map(i=>i.name)});
       }
     }
     result.players.sort((a,b)=>Number(b.major)-Number(a.major)||b.maxEdge-a.maxEdge);
@@ -232,7 +241,7 @@ function buildAnalysis(games, upcoming=[], injuryInfo={available:false,records:[
   }
   const highlights=matches.flatMap(m=>m.players.map(p=>({...p,opponent:p.team===m.home?m.away:m.home,eventId:m.id,gameDate:m.date}))).sort((a,b)=>Number(b.major)-Number(a.major)||b.maxEdge-a.maxEdge);
   const date=localDate();
-  return {generatedAt:new Date().toISOString(),targetDate:options.targetDate||addDays(date,1),sample:{games:all.length,players:players.length,first:all[0]?.date?.slice(0,10)||null,last:all.at(-1)?.date?.slice(0,10)||null},teams,roles:DISPLAY_ROLES,league,teamData,matches,highlights,injuries:{available:!!injuryInfo.available,fetchedAt:injuryInfo.fetchedAt||null,count:injuries.length},methodology:{window:'Rolling current-season completed games (max 65 days, regular-season only when labelled)',thresholds:'Strong matchup = estimated matchup change >= 17%; ordinary matchup = >= 10%. Not betting probabilities.',injury:'Only applied with comparable historical on/off samples. Historical injuries are not calibrated.',model:'Out-of-sample backtesting tunes recency, role, position and available pace feature coefficients. Matching historical game results are never used as inputs.'}};
+  return {generatedAt:new Date().toISOString(),targetDate:options.targetDate||addDays(date,1),sample:{games:all.length,players:players.length,first:all[0]?.date?.slice(0,10)||null,last:all.at(-1)?.date?.slice(0,10)||null},teams,roles:DISPLAY_ROLES,league,teamData,matches,highlights,injuries:{available:!!injuryInfo.available,fetchedAt:injuryInfo.fetchedAt||null,count:injuries.length},methodology:{window:'Rolling current-season completed games (max 65 days, regular-season only when labelled)',thresholds:'Live signals use total projected change versus season baseline: 10% ordinary, 17% strong, plus at least 1.5 points / 0.8 rebounds / 0.6 assists. Not betting probabilities.',injury:'Fresh reported outs drive observed with/without splits or capped estimated role redistribution. Minutes are estimates, not confirmed lineups. The live opportunity overlay is not included in the historical backtest.',model:'Out-of-sample backtesting tunes recency, role, position and available pace feature coefficients. Matching historical game results are never used as inputs.'}};
 }
 function contextRatio(role,league,pos,lpos,stat){
   // Role-specific defence signal, backed off to positional rates and 1.0 for small samples.

@@ -71,7 +71,7 @@ function createBacktest(games,opts={}){
     'Every predicted game uses only previously completed game dates; same-day future outcomes are excluded.',
     'Weights are fitted to the earliest 70% of evaluated dates. Later dates are untouched until the final test score.',
     'Model error is evaluated only on players who actually appeared for at least six minutes. DNPs cannot be scored.',
-    'Historical injury reports and confirmed starting lineups were not archived: injury effects are excluded from backtesting and remain uncalibrated.',
+    'This audit covers the original statistical model only. The live projected-minutes and injury opportunity overlay is NOT included in these accuracy figures; it remains unvalidated.',
     'Strong/positive labels are matchup-effect magnitudes, not calibrated betting probabilities.',
     sufficient?'The tuned model is used for the next-day scanner. Training and untouched holdout errors are displayed separately.':'Not enough independent history to verify tuned weights. Conservative defaults remain active until more games are synced.'
   ]};

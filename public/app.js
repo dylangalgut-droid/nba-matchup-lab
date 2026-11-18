@@ -35,42 +35,30 @@ function renderMeta(){
   if(cov && cov.expected){$('footer-update').title=`${cov.imported}/${cov.expected} completed box scores imported${cov.missing?` · ${cov.missing} missing`:''}`;}
   $('live-pill').innerHTML=`<span></span>${d.lastUpdated?'DATA SYNCED':'NOT SYNCED'}`;
 }
-function renderTeams(){
-  const q=$('team-search').value.trim().toLowerCase();
-  const list=(state.data?.teams||[]).filter(t=>t.name.toLowerCase().includes(q)||t.abbr.toLowerCase().includes(q));
-  $('teams-list').innerHTML=list.map(t=>`<button class="team-row ${state.team===t.abbr?'active':''}" type="button" data-team="${SAFE(t.abbr)}" role="option" aria-selected="${state.team===t.abbr}"><span class="team-abbr">${SAFE(t.abbr)}</span><span>${SAFE(t.name.replace(/^Los Angeles /,'LA ').replace(/^New York /,'NY ').replace(/^Golden State /,'GS '))}</span></button>`).join('')||'<div class="empty-panel">No matching teams</div>';
-  $('teams-list').querySelectorAll('[data-team]').forEach(b=>b.addEventListener('click',()=>{state.team=b.dataset.team;renderDefence();}));
-}
-function deltaHtml(value,observations){
-  if(!observations||observations<5)return '<span class="delta flat" title="Not enough observations">LOW N</span>';
-  const cls=value>=5?'up':value<=-5?'down':'flat';
-  return `<span class="delta ${cls}">${value>0?'+':''}${fmt(value)}%</span>`;
-}
+const EAST=new Set(['ATL','BOS','BKN','CHA','CHI','CLE','DET','IND','MIA','MIL','NYK','ORL','PHI','TOR','WAS']);
+function signed(n){return `${n>0?'+':''}${fmt(n)}`;}
 function renderDefence(){
   const d=state.data;if(!d)return;
-  renderTeams();
-  const team=d.teams.find(t=>t.abbr===state.team)||d.teams[0];
-  if(team){$('selected-team-label').textContent=team.name;$('selected-team-games').textContent=`${team.games} games`}
-  const rows=(d.teamData[state.team]||[]).filter(r=>state.position==='ALL'||r.position===state.position);
-  $('allow-body').innerHTML=rows.map(r=>{
-    const cls=k=>k===state.stat?'is-focused':'';
-    const value=k=>r.n?fmt(r[k]):'—';
-    return `<tr><td><span class="role-pos">${SAFE(r.position)}</span>${SAFE(r.role)}</td>${['pts','reb','ast'].map(k=>`<td class="numeric ${cls(k)} ${!r.n?'muted-value':''}">${value(k)}</td>`).join('')}<td class="numeric">${deltaHtml(r.vs[state.stat],r.n)}</td><td class="numeric ${!r.n?'muted-value':''}">${r.n||'—'}</td></tr>`;
-  }).join('')||'<tr><td colspan="6">No roles available</td></tr>';
-  const roles=d.roles||[];
-  const select=$('role-filter');
-  if(!select.options.length){select.innerHTML=roles.map(r=>`<option value="${SAFE(r.role)}">${SAFE(r.position)} · ${SAFE(r.role)}</option>`).join('');}
-  if(!roles.some(r=>r.role===state.role))state.role=roles[0]?.role||'';
-  select.value=state.role;
-  const role=roles.find(r=>r.role===state.role);
-  const filtered=(d.teams||[]).map(t=>{
-    const a=(d.teamData[t.abbr]||[]).find(x=>x.role===state.role);
-    return {...t,sample:a?.n||0,value:a?.[state.stat]||0};
-  }).filter(x=>x.sample>=3).sort((a,b)=>b.value-a.value);
-  const high=filtered[0]?.value||1;
-  $('rank-stat-label').textContent=LABEL[state.stat];
-  $('leaderboard-context').textContent=`${role?.position||''} · ${filtered.length} teams with data`;
-  $('rank-grid').innerHTML=filtered.length?filtered.map((r,i)=>`<div class="rank-row" title="${SAFE(r.name)}: ${r.sample} opponent player-games"><span class="rank-num">${String(i+1).padStart(2,'0')}</span><span class="rank-team">${SAFE(r.abbr)}</span><div class="rank-bar"><div class="rank-fill" style="width:${Math.max(3,r.value/high*100)}%"></div></div><span class="rank-value">${fmt(r.value)} <small>(${r.sample})</small></span></div>`).join(''):'<div class="empty-panel">Sync game box scores to calculate the leaderboard.</div>';
+  const conference=$('conference-filter').value;
+  const teams=d.teams.filter(t=>conference==='ALL'||EAST.has(t.abbr)===(conference==='EAST'));
+  const roles=d.roles.filter(r=>(state.position==='ALL'||r.position===state.position)&&d.teams.some(t=>(d.teamData[t.abbr]||[]).some(x=>x.role===r.role&&x.n>0)));
+  const unit=LABEL[state.stat];$('heatmap-unit').textContent=`${unit.toUpperCase()} / PLAYER-GAME`;
+  const scale={pts:4,reb:2,ast:1.5}[state.stat];
+  const header='<thead><tr><th scope="col">POSITION / ROLE</th>'+teams.map(t=>`<th scope="col" title="${SAFE(t.name)}"><span class="heatmap-team">${SAFE(t.abbr)}</span></th>`).join('')+'</tr></thead>';
+  const rows=roles.map(role=>`<tr><th scope="row"><span class="heatmap-pos">${SAFE(role.position)}</span>${SAFE(role.role)}</th>${teams.map(t=>{
+    const r=d.teamData[t.abbr].find(x=>x.role===role.role),n=r?.n||0;
+    const value=n&&r.league?(r.delta?.[state.stat]??r[state.stat]-r.league[state.stat]):null;
+    const intensity=value===null?0:Math.min(1,Math.abs(value)/scale);
+    const color=value>0?`rgba(0,190,110,${.15+.7*intensity})`:value<0?`rgba(226,25,66,${.15+.7*intensity})`:'rgba(180,148,35,.18)';
+    const label=value===null?'—':signed(value);
+    const tip=value===null?'No observed sample':`${t.name} / ${role.role}: ${label} ${unit}. Team ${fmt(r[state.stat])}; league ${fmt(r.league[state.stat])}; ${n} player-games across ${r.games} games.${n<5?' Small sample.':''}`;
+    return `<td><button class="heatmap-cell ${n<5?'small-sample':''}" style="background:${color}" data-team="${SAFE(t.abbr)}" data-role="${SAFE(role.role)}" title="${SAFE(tip)}" aria-label="${SAFE(tip)}">${label}</button></td>`;
+  }).join('')}</tr>`).join('');
+  $('heatmap-table').innerHTML=header+'<tbody>'+ (rows||`<tr><td colspan="${teams.length+1}" class="empty-panel">No data for this position. Try Guards, Forwards or Centres.</td></tr>` )+'</tbody>';
+  $('heatmap-table').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+    $('heatmap-table').querySelectorAll('.selected-cell').forEach(c=>c.classList.remove('selected-cell'));b.classList.add('selected-cell');$('heatmap-detail').textContent=b.title;
+  }));
+  $('heatmap-detail').textContent='Select any cell to inspect its averages.';
 }
 function filterStats(p){
   const x=Object.values(p.stats||{});
@@ -81,33 +69,36 @@ function filterStats(p){
 }
 function dominant(p){
   const s=Object.values(p.stats);
-  const good=s.filter(x=>x.edge>9&&!x.limited).sort((a,b)=>b.edge-a.edge)[0];
-  const bad=s.filter(x=>x.edge< -9&&!x.limited).sort((a,b)=>a.edge-b.edge)[0];
+  const good=s.filter(x=>['positive','strong-positive'].includes(x.level)).sort((a,b)=>b.edge-a.edge)[0];
+  const bad=s.filter(x=>['negative','strong-negative'].includes(x.level)).sort((a,b)=>a.edge-b.edge)[0];
   if(state.matchFilter==='negative')return 'negative';
   if(state.matchFilter==='positive')return 'positive';
   return (good?.edge||0)>Math.abs(bad?.edge||0)?'positive':'negative';
 }
 function reasons(p,opponent){
-  const stats=Object.entries(p.stats).filter(([,x])=>!x.limited&&Math.abs(x.edge)>=10).sort((a,b)=>Math.abs(b[1].edge)-Math.abs(a[1].edge));
-  const notes=[];
+  const stats=Object.entries(p.stats).filter(([,x])=>['positive','negative','strong-positive','strong-negative'].includes(x.level)).sort((a,b)=>Math.abs(b[1].edge)-Math.abs(a[1].edge));
+  const notes=[];const c=p.context;
+  if(c)notes.push(`<strong>Estimated minutes: ${fmt(c.projectedMinutes)}</strong> · last five ${fmt(c.recentMinutes)} · season ${fmt(c.baselineMinutes)}. ${c.budgetAdjusted?'Adjusted to the team’s 240-minute budget.':''}`);
   for(const [key,x]of stats.slice(0,2)){
-    if(x.roleAllowed!==null&&x.roleN>=3){
-      notes.push(`<strong>${x.edge>0?'Favourable':'Difficult'} ${LABEL[key]}:</strong> ${SAFE(opponent)} have allowed ${fmt(x.roleAllowed)} ${LABEL[key]} per game to ${SAFE(p.role)} players in ${x.roleN} outings. The model's estimate is ${x.edge>0?'+':''}${fmt(x.edge)}% relative to ${SAFE(p.name.split(' ').at(-1))}’s season baseline.`);
-    }else notes.push(`<strong>${LABEL[key]} signal:</strong> ${x.edge>0?'+':''}${fmt(x.edge)}% versus season baseline, based primarily on positional history.`);
+    notes.push(`<strong>${x.edge>0?'Favourable':'Unfavourable'} ${LABEL[key]}:</strong> ${fmt(x.projection)} projected vs ${fmt(x.base)} season average (${signed(x.delta??x.projection-x.base)}).`);
+    if(x.components)notes.push(`<span class="component-breakdown">${Object.entries(x.components).map(([k,v])=>`${{minutes:'Minutes',form:'Recent rate',injury:'Injury / role',matchup:'Defence & pace'}[k]} ${signed(v)}`).join(' · ')}</span>`);
+    if(x.roleAllowed!==null)notes.push(`${SAFE(opponent)} allow ${fmt(x.roleAllowed)} ${LABEL[key]} to this role vs ${fmt(x.leagueRole)} league-wide (${x.roleN} player-games). This is one input, not the whole signal.`);
   }
-  if(p.injury&&p.injury.status!=='available'&&p.injury.status!=='unknown')notes.push(`<span class="injury-flag">Player status: ${SAFE(p.injury.status)}. Actual minutes are uncertain.</span>`);
-  if(p.teammateOut?.length)notes.push(`<span class="injury-flag">Teammate(s) reported out: ${SAFE(p.teammateOut.slice(0,3).join(', '))}. Model only applies changes when comparable past samples exist.</span>`);
-  if(p.stats.pts?.defenseInjuryUsed>=3||p.stats.reb?.defenseInjuryUsed>=3||p.stats.ast?.defenseInjuryUsed>=3)notes.push(`<span class="injury-flag">Opponent injury adjustment includes observed defensive splits.</span>`);
-  notes.push(`<span style="color:#728da3">Role: ${SAFE(p.role)} · ${p.played} qualifying player games · Projection is an estimate, not a betting line</span>`);
+  for(const driver of c?.drivers||[])notes.push(`<span class="injury-flag"><strong>${SAFE(driver.name)} out:</strong> ${SAFE(driver.method)} · ${signed(driver.minuteChange)} estimated minutes${driver.method.startsWith('Observed')?` · ${driver.withGames} with / ${driver.withoutGames} without games`:'. Usage change is an assumption, not a confirmed coaching decision'}.</span>`);
+  if(c&&!c.freshInjuries)notes.push('Fresh injury data unavailable: no numerical injury boost applied.');
+  if(p.injury&&['questionable','probable','day-to-day'].includes(p.injury.status))notes.push(`<span class="injury-flag">Conditional on playing: ${SAFE(p.injury.status)}. Minutes are not confirmed.</span>`);
+  if(p.teammateOut?.length&&!c?.drivers?.length)notes.push(`Reported out: ${SAFE(p.teammateOut.join(', '))}. No additional opportunity boost: already reflected in the recent rotation or insufficient evidence.`);
+  if(Object.values(p.stats).some(x=>x.defenseInjuryUsed>=3))notes.push('Opponent injury effect uses observed positional defensive splits.');
+  notes.push(`<span style="color:#91a5b8">${p.played} player-games · Estimated opportunity; not a betting probability</span>`);
   return notes.map(t=>`<p>${t}</p>`).join('');
 }
 function playerCard(p,game){
   const opponent=p.team===game.home?game.away:game.home;
   const dir=dominant(p);
   const bright=p.major;
-  const status=bright?'SEVERE EDGE':dir==='positive'?'FAVOURABLE':'UNFAVOURABLE';
+  const status=(p.injury&&['questionable','day-to-day'].includes(p.injury.status)?'CONDITIONAL · ':'')+(bright?'STRONG · ':'')+(dir==='positive'?'FAVOURABLE':'UNFAVOURABLE');
   const avatar=SAFE(p.name.split(' ').map(s=>s[0]).slice(0,2).join(''));
-  return `<article class="player-card ${dir}"><div class="player-head"><div class="player-portrait"><img loading="lazy" src="https://a.espncdn.com/i/headshots/nba/players/full/${encodeURIComponent(p.id)}.png" alt="" data-avatar="${avatar}"></div><div class="player-info"><strong>${SAFE(p.name)}</strong><small>${SAFE(p.team)} · ${SAFE(p.position)} / ${SAFE(p.role)} · vs ${SAFE(opponent)}</small></div><span class="severity ${dir==='negative'?'bad':''} ${!bright?'medium':''}">${status}</span></div><div class="stat-cards">${['pts','reb','ast'].map(k=>{const x=p.stats[k];const trend=x.edge>=10&&!x.limited?'up':x.edge<=-10&&!x.limited?'down':'flat';return `<div class="stat-card"><span>${k.toUpperCase()}</span><strong>${fmt(x.projection)}</strong><small class="${trend}">${x.limited?'LOW SAMPLE':`${x.edge>0?'+':''}${fmt(x.edge)}%`}</small><span style="margin-top:3px;letter-spacing:0;font-size:9px">Base ${fmt(x.base)}</span></div>`;}).join('')}</div><div class="card-notes">${reasons(p,opponent)}</div></article>`;
+  return `<article class="player-card ${dir}"><div class="player-head"><div class="player-portrait"><img loading="lazy" src="https://a.espncdn.com/i/headshots/nba/players/full/${encodeURIComponent(p.id)}.png" alt="" data-avatar="${avatar}"></div><div class="player-info"><strong>${SAFE(p.name)}</strong><small>${SAFE(p.team)} · ${SAFE(p.position)} / ${SAFE(p.role)} · vs ${SAFE(opponent)}</small></div><span class="severity ${dir==='negative'?'bad':''} ${!bright?'medium':''}">${status}</span></div><div class="stat-cards">${['pts','reb','ast'].map(k=>{const x=p.stats[k];const trend=x.edge>=10&&!x.limited?'up':x.edge<=-10&&!x.limited?'down':'flat';return `<div class="stat-card"><span>${k.toUpperCase()}</span><strong>${fmt(x.projection)}</strong><small class="${trend}">${x.limited?'LOW SAMPLE':`${signed(x.delta??x.projection-x.base)} vs avg`}</small><span style="margin-top:3px;letter-spacing:0;font-size:9px">Base ${fmt(x.base)}</span></div>`;}).join('')}</div><div class="card-notes">${reasons(p,opponent)}</div></article>`;
 }
 function renderMatchups(){
   const d=state.data;if(!d)return;
@@ -132,7 +123,7 @@ function renderPerformance(){
   const a=state.audit;
   if(!a){$('performance-metrics').innerHTML='<p class="empty-panel">The model audit has not loaded yet.</p>';return;}
   const tested=a.status==='evaluated';
-  $('performance-summary').innerHTML=`<strong>${tested?'BACKTEST COMPLETE':'INSUFFICIENT SAMPLE'}</strong><span>${Number(a.observations||0)} qualifying player-games · ${Number(a.training?.n||0)} training · ${Number(a.holdout?.n||0)} later holdout</span>`;
+  $('performance-summary').innerHTML=`<p class="scenario-notice">Statistical model audit only — live minutes and injury opportunity estimates are not tested by these figures.</p><strong>${tested?'BACKTEST COMPLETE':'INSUFFICIENT SAMPLE'}</strong><span>${Number(a.observations||0)} qualifying player-games · ${Number(a.training?.n||0)} training · ${Number(a.holdout?.n||0)} later holdout</span>`;
   const names={pts:'Points',reb:'Rebounds',ast:'Assists'};
   $('performance-metrics').innerHTML=['pts','reb','ast'].map(k=>{
     const x=a.models?.[k]||{};const h=x.holdout;const weights=x.weights||{};
@@ -198,9 +189,8 @@ function bind(){
   document.querySelectorAll('.nav-link').forEach(b=>b.addEventListener('click',()=>setPage(b.dataset.page)));
   document.querySelectorAll('#stat-tabs button').forEach(b=>b.addEventListener('click',()=>{state.stat=b.dataset.stat;document.querySelectorAll('#stat-tabs button').forEach(x=>x.classList.toggle('active',x===b));renderDefence()}));
   document.querySelectorAll('#match-tabs button').forEach(b=>b.addEventListener('click',()=>{state.matchFilter=b.dataset.matchfilter;document.querySelectorAll('#match-tabs button').forEach(x=>x.classList.toggle('active',x===b));renderMatchups()}));
-  $('team-search').addEventListener('input',renderTeams);
+  $('conference-filter').addEventListener('change',renderDefence);
   $('pos-filter').addEventListener('change',e=>{state.position=e.target.value;renderDefence();});
-  $('role-filter').addEventListener('change',e=>{state.role=e.target.value;renderDefence();});
   $('game-filter').addEventListener('change',e=>{state.gameFilter=e.target.value;renderMatchups();});
   $('refresh-btn').addEventListener('click',startRefresh);
   $('audit-refresh').addEventListener('click',recalculateAudit);
