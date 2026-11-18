@@ -10,8 +10,10 @@ function buildOpportunity(players,team,outs,games,{fresh=true,gameDate}={}){
  const reference=Date.parse(gameDate||teamGames.at(-1)?.date||0);
  const roster=players.filter(p=>p.team===team&&p.n>=3&&p.avg.min>=8&&reference-Date.parse(p.lastPlayed)<15*86400000);
  const unavailable=new Set(outs.map(i=>String(i.id)));
- const active=roster.filter(p=>!unavailable.has(p.id));
- const result=new Map(active.map(p=>[p.id,{baselineMinutes:p.avg.min,recentMinutes:mean(p.lines.slice(-5),'min'),projectedMinutes:clamp(.7*mean(p.lines.slice(-5),'min')+.3*p.avg.min,0,38),rates:{pts:0,reb:0,ast:0},drivers:[],method:'Recent five games + season minutes',freshInjuries:fresh}]));
+ const active=roster.filter(p=>!unavailable.has(p.id)&&!outs.some(i=>i.name?.toLowerCase()===p.name.toLowerCase())&&teamGames.some(g=>g.players.some(x=>String(x.id)===p.id&&x.team===team&&x.min>0)));
+ const recentTeamGames=games.filter(g=>g.home===team||g.away===team).slice(-5);
+ const participation=p=>recentTeamGames.filter(g=>g.players.some(x=>String(x.id)===p.id&&x.team===team&&x.min>0)).length/Math.max(1,recentTeamGames.length);
+ const result=new Map(active.map(p=>[p.id,{baselineMinutes:p.avg.min,recentMinutes:mean(p.lines.slice(-5),'min'),projectedMinutes:clamp((.7*mean(p.lines.slice(-5),'min')+.3*p.avg.min)*participation(p),0,38),rates:{pts:0,reb:0,ast:0},drivers:[],method:'Recent five games + season minutes',freshInjuries:fresh}]));
  if(fresh)for(const out of outs.filter(o=>o.status==='out')){
   const missing=roster.find(p=>p.id===String(out.id)||p.name.toLowerCase()===out.name.toLowerCase());
   if(!missing||missing.avg.min<18)continue;
