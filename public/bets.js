@@ -7,7 +7,7 @@ const units=n=>`${n>0?'+':''}${Number(n).toFixed(2)}u`;
 let bets=[],feed={games:{},fixtures:[],players:[]},results={},draft=[],storageOK=true;
 try{const saved=JSON.parse(localStorage.getItem(KEY)||'[]');if(!Array.isArray(saved)||!saved.every(E.valid))throw Error('Invalid stored bet data');bets=saved;}catch(e){storageOK=false;$('bet-message').textContent='Saved bets could not be loaded. Export your stored data before making changes; storage may be blocked or damaged.';}
 function save(next){if(!storageOK)throw Error('Browser storage unavailable. Existing data has not been overwritten.');localStorage.setItem(KEY,JSON.stringify(next));bets=next;}
-function message(s){$('bet-message').textContent=s;}
+function message(s){$('bet-message').textContent=s;$('bet-leg-message').textContent=s;}
 function render(){
  results=Object.fromEntries(bets.map(b=>[b.id,E.settle(b,feed.games)]));
  const date=$('bet-view-date').value||day(Date.now());
@@ -22,20 +22,18 @@ function render(){
  $('bet-history').querySelectorAll('[data-result]').forEach(s=>s.addEventListener('change',()=>{const b=bets.find(b=>b.id===s.dataset.result);let manual=null;const action=s.value;if(!action)return;if(action==='custom'){const raw=prompt('Total return in units INCLUDING the returned stake (for a partial refund, void-leg multi or cash-out):');if(raw===null){s.value='';return;}const returned=Number(raw);if(!raw.trim()||!Number.isFinite(returned)||returned<0||returned>1e10){message('Enter a valid total return.');s.value='';return;}manual={status:returned>b.stake?'won':returned<b.stake?'lost':'void',profit:returned-b.stake};}else if(action!=='auto')manual={status:action,profit:action==='won'?b.stake*(b.odds-1):action==='lost'?-b.stake:0};try{save(bets.map(x=>x.id===b.id?{...x,manual}:x));render();message('Result updated.');}catch(e){message(e.message);}}));
 }
 function gamesForDate(){return [...feed.fixtures,...Object.values(feed.games)].filter((g,i,a)=>day(g.date)===$('bet-date').value&&a.findIndex(x=>x.id===g.id)===i).sort((a,b)=>a.date.localeCompare(b.date));}
-function games(){const gs=gamesForDate();$('bet-game').innerHTML='<option value="">Choose game</option>'+gs.map(g=>`<option value="${esc(g.id)}">${esc(g.away)} @ ${esc(g.home)}</option>`).join('');players();}
-function players(){const g=gamesForDate().find(g=>g.id===$('bet-game').value);const ps=g?feed.players.filter(p=>p.team===g.home||p.team===g.away):[];$('bet-player').innerHTML='<option value="">Choose player</option>'+ps.sort((a,b)=>a.name.localeCompare(b.name)).map(p=>`<option value="${esc(p.id)}">${esc(p.name)} (${esc(p.team)})</option>`).join('');}
+function games(){const selected=$('bet-game').value;const gs=gamesForDate();$('bet-game').innerHTML='<option value="">Choose game</option>'+gs.map(g=>`<option value="${esc(g.id)}">${esc(g.away)} @ ${esc(g.home)}</option>`).join('');if(gs.some(g=>g.id===selected))$('bet-game').value=selected;players();}
+function players(){const selected=$('bet-player').value;const g=gamesForDate().find(g=>g.id===$('bet-game').value);const ps=g?feed.players.filter(p=>p.team===g.home||p.team===g.away):[];$('bet-player').innerHTML='<option value="">Choose player</option>'+ps.sort((a,b)=>a.name.localeCompare(b.name)).map(p=>`<option value="${esc(p.id)}">${esc(p.name)} (${esc(p.team)})</option>`).join('');if(ps.some(p=>p.id===selected))$('bet-player').value=selected;}
 function showDraft(){$('bet-legs').innerHTML=draft.map((l,i)=>`<li>${esc(l.label)} <button type="button" data-remove="${i}" aria-label="Remove leg ${i+1}">Remove</button></li>`).join('');$('bet-legs').querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{draft.splice(Number(b.dataset.remove),1);showDraft();});}
 $('bet-date').value=$('bet-view-date').value=day(Date.now());
-$('bet-date').onchange=()=>{draft=[];showDraft();games();};$('bet-game').onchange=players;
+$('bet-date').onchange=()=>{games();message('Game list updated. Your added legs have been kept.');};$('bet-game').onchange=players;
 $('bet-add-leg').onclick=()=>{const g=gamesForDate().find(g=>g.id===$('bet-game').value),p=feed.players.find(p=>p.id===$('bet-player').value),raw=$('bet-line').value,line=Number(raw),stat=$('bet-stat').value,op=$('bet-op').value;
  if(!g||!p||!raw||!Number.isFinite(line)||line<0||line>200){message('Choose a game, player and valid stat target.');return;}
- if(g.completed||Date.parse(g.date)<=Date.now()){message('Automatic legs must be saved before scheduled tipoff. Use manual tracking for a bet already placed.');return;}
  if(draft.length>=30){message('Maximum 30 legs.');return;}
  if(draft.some(l=>l.gameId===g.id&&l.playerId===p.id&&l.stat===stat&&l.op===op&&l.line===line)){message('That leg is already added.');return;}
- draft.push({gameId:g.id,playerId:p.id,stat,op,line,label:`${p.name} ${op==='gte'?'at least':op==='over'?'over':'under'} ${line} ${stat.toUpperCase()} · ${g.away} @ ${g.home}`});showDraft();message('Leg added. Add every leg for an automatically tracked multi.');};
+ draft.push({gameId:g.id,playerId:p.id,stat,op,line,label:`${p.name} ${op==='gte'?'at least':op==='over'?'over':'under'} ${line} ${stat.toUpperCase()} · ${g.away} @ ${g.home}`});if(draft.length>1)$('bet-type').value='multi';showDraft();message(`Leg ${draft.length} added. Choose the next player/stat and click Add leg again, or Save bet when finished.`);};
 $('bet-form').onsubmit=e=>{e.preventDefault();try{const type=$('bet-type').value,mode=$('bet-mode').value,legs=mode==='auto'?draft.slice():[];
  if(mode==='auto'&&(legs.length<(type==='multi'?2:1)||(type==='single'&&legs.length!==1)))throw Error(type==='multi'?'Add at least two legs for a multi.':'Add exactly one leg for a single.');
- if(legs.some(l=>{const g=gamesForDate().find(g=>g.id===l.gameId);return !g||Date.parse(g.date)<=Date.now();}))throw Error('A selected game has started. Save this as manual tracking instead.');
  const b={id:crypto.randomUUID(),description:$('bet-description').value.trim(),type,date:$('bet-date').value,odds:Number($('bet-odds').value),stake:Number($('bet-stake').value),legs,createdAt:new Date().toISOString(),manual:null};
  if(!E.valid(b))throw Error('Check the description, decimal odds (above 1) and positive unit stake.');save([...bets,b]);draft=[];showDraft();$('bet-description').value='';$('bet-odds').value='';$('bet-stake').value='';render();message('Bet saved on this browser. Export a backup to keep a separate copy.');}catch(e){message(e.message);}};
 $('bet-mode').onchange=()=>{$('bet-leg-builder').hidden=$('bet-mode').value!=='auto';};
