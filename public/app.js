@@ -11,11 +11,11 @@ function setPage(page){
   state.page=page;
   document.querySelectorAll('.page').forEach(e=>e.classList.toggle('hidden',e.id!==`page-${page}`));
   document.querySelectorAll('.nav-link').forEach(e=>e.classList.toggle('active',e.dataset.page===page));
-  $('crumb-page').textContent=page==='defence'?'Defence by role':page==='matchups'?'Game matchups':'Model performance';
+  $('crumb-page').textContent=page==='defence'?'Defence by role':page==='matchups'?'Game matchups':page==='bets'?'Bet tracker':'Model performance';
   if(page==='performance')loadAudit();
   render();window.scrollTo({top:0,behavior:'smooth'});
 }
-function render(){if(state.page==='defence')renderDefence();else if(state.page==='matchups')renderMatchups();else renderPerformance();}
+function render(){if(state.page==='defence')renderDefence();else if(state.page==='matchups')renderMatchups();else if(state.page==='performance')renderPerformance();}
 function renderMeta(){
   const d=state.data||{};const s=d.sample||{};
   $('metric-teams').innerHTML=`${d.teams?.length||30} <span>NBA</span>`;

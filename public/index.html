@@ -17,6 +17,7 @@
         <button class="nav-link active" data-page="defence"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M3 20V9m6 11V4m6 16v-7m6 7V8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span>Defence by role</span></button>
         <button class="nav-link" data-page="matchups"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="m3 7 8-4 10 4v9l-10 5-8-5V7Zm8-4v9m-8-5 8 5 10-5m-10 5v9" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span><span>Game matchups</span><span class="nav-counter" id="nav-count">0</span></button>
         <button class="nav-link" data-page="performance"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M3 20V11h5v9H3Zm7 0V5h5v15h-5Zm7 0v-8h4v8h-4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span><span>Model performance</span></button>
+        <button class="nav-link" data-page="bets"><span class="nav-icon">＋</span><span>Bet tracker</span></button>
       </nav>
       <div class="rail-split"></div>
       <div class="rail-title">MODEL INPUTS</div>
@@ -61,10 +62,29 @@
           <section class="panel performance-panel"><div class="panel-head"><div><div class="section-kicker">01 / OUT-OF-SAMPLE ACCURACY</div><h2>Points, rebounds &amp; assists</h2></div><span class="head-tag">HOLDOUT DATA</span></div><div id="performance-metrics" class="performance-grid"></div></section>
           <section class="panel performance-panel"><div class="panel-head"><div><div class="section-kicker">02 / MODEL DISCIPLINE</div><h2>Methodology &amp; limitations</h2></div></div><div id="performance-notes" class="performance-notes"></div></section>
         </section>
+<section class="page hidden" id="page-bets">
+ <div class="hero"><div class="eyebrow">YOUR BETTING JOURNAL</div><h1>Bets, <em>tracked in units.</em></h1><p>Record singles and multis. Track settled profit, your daily result and your all-time record.</p></div>
+ <p class="scenario-notice">Private to this browser/device. No account or cross-device sync. Export a backup before clearing browser data. Supported NBA player-stat bets settle when you open this page after the twice-daily result update; this is not live bookmaker settlement.</p>
+ <div class="heatmap-toolbar"><label>Day (Melbourne) <input type="date" id="bet-view-date"></label><button type="button" id="bet-check">Check results</button><button type="button" id="bet-restore">Restore removed bets</button><button type="button" id="bet-export">Export bets</button><label>Import backup <input type="file" id="bet-import" accept="application/json,.json"></label></div>
+ <div class="metric-strip"><div class="metric-item"><div class="metric-title">SELECTED DAY NET</div><div class="metric-value" id="bet-day-total">0.00u</div></div><div class="metric-item"><div class="metric-title">ALL-TIME NET</div><div class="metric-value" id="bet-all-total">0.00u</div></div><div class="metric-item"><div class="metric-title">TOTAL TIP RECORD</div><div class="metric-value date" id="bet-record">0W – 0L – 0V</div></div><div class="metric-item"><div class="metric-title">UNSETTLED</div><div id="bet-open">0 pending</div></div></div>
+ <p id="bet-day-record"></p><p id="bet-feed" class="heatmap-footnote">Loading final box scores…</p>
+ <p class="heatmap-footnote">Net units = returns minus stake; pending/review bets contribute zero until settled. Daily results use the bet's selected date. Each multi counts as one tip. Custom cash-outs count as won/lost/void according to net profit.</p>
+ <p id="bet-message" role="status" aria-live="polite"></p>
+ <form id="bet-form" class="panel bet-form"><h2>Add a bet</h2>
+ <label>What is the bet? <textarea id="bet-description" maxlength="500" required placeholder="e.g. Player 20+ points, or my three-leg multi"></textarea></label>
+ <div class="bet-fields"><label>Bet date <input id="bet-date" type="date" required></label><label>Bet type <select id="bet-type"><option value="single">Single</option><option value="multi">Multi</option></select></label><label>Decimal odds <input id="bet-odds" type="number" min="1.001" max="100000" step="any" required placeholder="1.90"></label><label>Stake (units) <input id="bet-stake" type="number" min="0.001" max="100000" step="any" required placeholder="1"></label></div>
+ <label>Settlement <select id="bet-mode"><option value="manual">Manual — any bet or already-placed bet</option><option value="auto">Automatic — NBA points / rebounds / assists</option></select></label>
+ <div id="bet-leg-builder" hidden><p>Add every leg. For 20+ points choose “At least” and 20. Over 20.5 requires 21 or more. Automatic entries must be saved before tipoff. DNPs and pushes require review; use custom return for multis with void legs.</p><div class="bet-fields"><label>Game <select id="bet-game"></select></label><label>Player <select id="bet-player"></select></label><label>Statistic <select id="bet-stat"><option value="pts">Points</option><option value="reb">Rebounds</option><option value="ast">Assists</option></select></label><label>Target type <select id="bet-op"><option value="gte">At least (+)</option><option value="over">Over</option><option value="under">Under</option></select></label><label>Target <input id="bet-line" type="number" min="0" max="200" step="0.5"></label></div><button type="button" id="bet-add-leg">Add leg</button><ol id="bet-legs"></ol></div>
+ <button class="refresh-btn" type="submit">Save bet</button></form>
+ <div class="heatmap-toolbar"><h2>Your bets</h2><label>Show <select id="bet-history-scope"><option value="day">Selected day</option><option value="all">All time</option></select></label></div><div id="bet-history"></div>
+</section>
+
         <footer class="footer"><span>NBA MATCHUP LAB <b>·</b> DEFENSIVE ANALYTICS</span><span id="footer-update">Data not yet synced</span><span id="coverage-footer">Unverified feeds may be delayed. Estimates are not betting guarantees.</span></footer>
       </div>
     </main>
   </div>
   <script src="/app.js" defer></script>
+  <script src="./bet-engine.js" defer></script>
+  <script src="./bets.js" defer></script>
 </body>
 </html>

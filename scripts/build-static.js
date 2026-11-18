@@ -17,6 +17,20 @@ const app = require('../server');
   for (const [name, value] of Object.entries({dashboard, backtest:audit, status})) {
     fs.writeFileSync(path.join(out, 'data', name+'.json'), JSON.stringify(value));
   }
+  // Public final box scores only. Private bets never leave the visitor's browser.
+  const resultPath=path.resolve(__dirname,'../data/settlements.json');
+  const cache=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../data/cache.json'),'utf8'));
+  const archive=fs.existsSync(resultPath)?JSON.parse(fs.readFileSync(resultPath,'utf8')):{games:{}};
+  const playerMap=new Map();
+  for(const g of Object.values(cache.games||{}).sort((a,b)=>a.date.localeCompare(b.date))){
+    if(!g.completed)continue;
+    archive.games[g.id]={id:g.id,date:g.date,home:g.home,away:g.away,completed:true,players:g.players.map(p=>({id:String(p.id),name:p.name,team:p.team,min:p.min,pts:p.pts,reb:p.reb,ast:p.ast}))};
+    for(const p of g.players)playerMap.set(String(p.id),{id:String(p.id),name:p.name,team:p.team});
+  }
+  archive.fixtures=dashboard.matches.map(g=>({id:g.id,date:g.date,home:g.home,away:g.away,completed:!!g.completed}));
+  archive.players=[...playerMap.values()];archive.updatedAt=dashboard.lastUpdated;
+  fs.writeFileSync(resultPath,JSON.stringify(archive));
+  fs.writeFileSync(path.join(out,'data/settlements.json'),JSON.stringify(archive));
   let html=fs.readFileSync(path.join(out,'index.html'),'utf8');
   html=html.replace('href="/style.css"','href="./style.css"').replace('src="/app.js"','src="./app.js"').replace('href="/"','href="./"');
   html=html.replace('Recalculate backtest','Reload backtest').replace('Refresh data</span>','Reload latest data</span>');
@@ -33,8 +47,8 @@ const app = require('../server');
   // Avoid presenting yesterday’s schedule as tomorrow’s when an update is overdue.
   js=js.replace('state.data=await r.json();renderMeta();render();', `state.data=await r.json();renderMeta();render();if(Date.now()-Date.parse(state.data.lastUpdated)>18*3600000)showError('The latest NBA update is more than 18 hours old. Check the displayed matchup date before using these ratings.');`);
   fs.writeFileSync(path.join(out,'app.js'),js);
-  const version=require('node:crypto').createHash('sha256').update(js).digest('hex').slice(0,12);
-  fs.writeFileSync(path.join(out,'index.html'),html.replace('./app.js', './app.js?v='+version).replace('./style.css','./style.css?v='+version));
+  const version=require('node:crypto').createHash('sha256').update(js).update(fs.readFileSync(path.join(out,'bets.js'))).update(fs.readFileSync(path.join(out,'bet-engine.js'))).digest('hex').slice(0,12);
+  fs.writeFileSync(path.join(out,'index.html'),html.replace('./app.js', './app.js?v='+version).replace('./style.css','./style.css?v='+version).replace('./bets.js','./bets.js?v='+version).replace('./bet-engine.js','./bet-engine.js?v='+version));
   fs.writeFileSync(path.join(out,'.nojekyll'),'');
   console.log(JSON.stringify({lastUpdated:dashboard.lastUpdated, games:status.cacheGames, coverage:dashboard.coverage, targetDate:dashboard.targetDate}));
 })().catch(e=>{console.error(e);process.exitCode=1;});
