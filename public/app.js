@@ -1,6 +1,6 @@
 'use strict';
 const $=id=>document.getElementById(id);
-const state={page:'defence',team:'BOS',stat:'pts',position:'ALL',role:'Pass-first guard',matchFilter:'all',gameFilter:'ALL',data:null,status:null,audit:null};
+const state={page:'defence',team:'BOS',stat:'pts',position:'ALL',role:'Pass-first guard',matchFilter:'all',gameFilter:'ALL',day:null,data:null,status:null,audit:null};
 const LABEL={pts:'points',reb:'rebounds',ast:'assists'};
 const SAFE=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=n=>Number.isFinite(Number(n))?Number(n).toFixed(1):'—';
@@ -11,7 +11,7 @@ function setPage(page){
   state.page=page;
   document.querySelectorAll('.page').forEach(e=>e.classList.toggle('hidden',e.id!==`page-${page}`));
   document.querySelectorAll('.nav-link').forEach(e=>e.classList.toggle('active',e.dataset.page===page));
-  $('crumb-page').textContent=page==='defence'?'Defence by role':page==='matchups'?'Next-day matchups':'Model performance';
+  $('crumb-page').textContent=page==='defence'?'Defence by role':page==='matchups'?'Game matchups':'Model performance';
   if(page==='performance')loadAudit();
   render();window.scrollTo({top:0,behavior:'smooth'});
 }
@@ -102,14 +102,26 @@ function playerCard(p,game){
 }
 function renderMatchups(){
   const d=state.data;if(!d)return;
+  const dates=d.slateDates||[d.targetDate];
+  if(!dates.includes(state.day))state.day=dates[0];
+  $('day-filter').innerHTML=dates.map((date,i)=>`<option value="${SAFE(date)}">${i===0?'Today':'Tomorrow'} · ${shortDate(date)}</option>`).join('');
+  $('day-filter').value=state.day;
+  $('tomorrow-date').textContent=longDate(state.day);
+  $('slate-tag').textContent=state.day===dates[0]?'TODAY':'TOMORROW';
+  const dayOf=s=>new Intl.DateTimeFormat('en-CA',{timeZone:'Australia/Melbourne',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(s));
+  const matches=d.matches.filter(g=>dayOf(g.date)===state.day);
+  const signals=matches.flatMap(g=>g.players);
+  $('stat-slate').textContent=matches.length;
+  $('stat-strong').textContent=signals.filter(p=>p.major).length;
+  $('stat-edges').textContent=signals.filter(p=>!p.major).length;
   const sel=$('game-filter'); const old=state.gameFilter;
-  sel.innerHTML='<option value="ALL">All matchups</option>'+d.matches.map(m=>`<option value="${SAFE(m.id)}">${SAFE(m.away)} @ ${SAFE(m.home)}</option>`).join('');
-  sel.value= d.matches.some(x=>x.id===old)?old:'ALL';state.gameFilter=sel.value;
-  const visible=d.matches.filter(x=>state.gameFilter==='ALL'||x.id===state.gameFilter).map(g=>({...g,players:g.players.filter(filterStats)}));
+  sel.innerHTML='<option value="ALL">All matchups</option>'+matches.map(m=>`<option value="${SAFE(m.id)}">${SAFE(m.away)} @ ${SAFE(m.home)}</option>`).join('');
+  sel.value= matches.some(x=>x.id===old)?old:'ALL';state.gameFilter=sel.value;
+  const visible=matches.filter(x=>state.gameFilter==='ALL'||x.id===state.gameFilter).map(g=>({...g,players:g.players.filter(filterStats)}));
   const html=visible.map(g=>{
     const players=g.players;
     const gTitle=`${SAFE(g.away)} <span style="color:#8299ac">@</span> ${SAFE(g.home)}`;
-    return `<section class="game-group"><div class="game-title"><h3>${gTitle}</h3><span class="tiptime">${melTime(g.date)} Melbourne · ${players.length} matchups flagged</span></div>${players.length?`<div class="player-grid">${players.map(p=>playerCard(p,g)).join('')}</div>`:'<div class="empty-panel">No qualifying signals for this game with the current filters and sample-size thresholds.</div>'}</section>`;
+    return `<section class="game-group"><div class="game-title"><h3>${gTitle}</h3><span class="tiptime">${melTime(g.date)} Melbourne · ${g.completed?'Final':SAFE(g.status||'Scheduled')} · ${players.length} matchups flagged</span></div>${g.completed?'<div class="empty-panel">Final — this game has finished. Pre-game signals are no longer displayed.</div>':players.length?`<div class="player-grid">${players.map(p=>playerCard(p,g)).join('')}</div>`:'<div class="empty-panel">No qualifying signals for this game with the current filters and sample-size thresholds.</div>'}</section>`;
   }).join('');
   $('matchup-content').innerHTML=!d.lastUpdated?'<div class="empty-panel"><strong>No live data imported yet</strong>Click Refresh data to download completed NBA box scores, tomorrow’s fixtures, and current injuries.<br><button id="empty-refresh">Refresh NBA data</button></div>':visible.length?html:'<div class="empty-panel"><strong>No games in the selected Melbourne day.</strong>Try refreshing the data. NBA schedules are organised by US date, but this view translates tipoff times to Melbourne.</div>';
   $('matchup-content').querySelectorAll('img[data-avatar]').forEach(img=>img.addEventListener('error',()=>{if(img.parentNode)img.parentNode.textContent=img.dataset.avatar||'?';}));
@@ -191,6 +203,7 @@ function bind(){
   document.querySelectorAll('#match-tabs button').forEach(b=>b.addEventListener('click',()=>{state.matchFilter=b.dataset.matchfilter;document.querySelectorAll('#match-tabs button').forEach(x=>x.classList.toggle('active',x===b));renderMatchups()}));
   $('conference-filter').addEventListener('change',renderDefence);
   $('pos-filter').addEventListener('change',e=>{state.position=e.target.value;renderDefence();});
+  $('day-filter').addEventListener('change',e=>{state.day=e.target.value;state.gameFilter='ALL';renderMatchups();});
   $('game-filter').addEventListener('change',e=>{state.gameFilter=e.target.value;renderMatchups();});
   $('refresh-btn').addEventListener('click',startRefresh);
   $('audit-refresh').addEventListener('click',recalculateAudit);

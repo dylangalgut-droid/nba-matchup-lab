@@ -140,10 +140,11 @@ function updateAudit(games,{force=false}={}){
 function rebuild(){
   const all=Object.values(cache.games||{});
   updateAudit(all);
-  const tomorrow=addDays(localDate(),1);
+  const today=localDate(),tomorrow=addDays(today,1);
   const possible=Object.values(cache.scores||{}).flatMap(v=>v.events||[]);
-  const unique=new Map(possible.filter(g=>g.date&&localDate(new Date(g.date))===tomorrow).map(g=>[g.id,g]));
-  dashboard=buildAnalysis(all,[...unique.values()],cache.injuries,{targetDate:tomorrow,startDate:currentPeriod().start,model:audit?.status==='evaluated'?audit.selectedModel:defaultModel()});
+  const unique=new Map(possible.filter(g=>g.date&&[today,tomorrow].includes(localDate(new Date(g.date)))).map(g=>[g.id,g]));
+  dashboard=buildAnalysis(all,[...unique.values()],cache.injuries,{targetDate:today,includeCompleted:true,startDate:currentPeriod().start,model:audit?.status==='evaluated'?audit.selectedModel:defaultModel()});
+  dashboard.slateDates=[today,tomorrow];
   dashboard.backtest={status:audit?.status||'insufficient',observations:audit?.observations||0,training:audit?.training||null,holdout:audit?.holdout||null,models:audit?.models||null};
   dashboard.lastUpdated=cache.lastUpdated||null;
   dashboard.source='ESPN public game summaries, scoreboard and injuries';
@@ -227,7 +228,7 @@ const server=http.createServer(async(req,res)=>{
   }
   if(u.pathname==='/api/dashboard'&&req.method==='GET'){
     // The target date shifts in Australia/Melbourne even if the app remains open overnight.
-    if(!dashboard || dashboard.targetDate!==addDays(localDate(),1))rebuild();
+    if(!dashboard || dashboard.targetDate!==localDate())rebuild();
     return send(200,dashboard);
   }
   if((u.pathname==='/api/refresh'||u.pathname==='/api/hooks/refresh')&&req.method==='POST'){

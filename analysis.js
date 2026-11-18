@@ -179,9 +179,10 @@ function buildAnalysis(games, upcoming=[], injuryInfo={available:false,records:[
   const injuryByTeam={};
   for(const i of injuries){if(!injuryByTeam[i.team])injuryByTeam[i.team]=[];injuryByTeam[i.team].push(i);}
   const matches=[];
-  const future=upcoming.filter(g=>!g.completed && g.home && g.away);
+  const future=upcoming.filter(g=>(options.includeCompleted||!g.completed) && g.home && g.away);
   for(const game of future){
     const result={...game,players:[],injuries:[...(injuryByTeam[game.home]||[]),...(injuryByTeam[game.away]||[])]};
+    if(game.completed){matches.push(result);continue;}
     for(const offensive of [game.home,game.away]){
       const defensive=offensive===game.home?game.away:game.home;
       const teamOuts=(injuryByTeam[offensive]||[]).filter(i=>['out','doubtful'].includes(i.status));
