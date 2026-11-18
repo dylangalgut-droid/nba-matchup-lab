@@ -75,9 +75,29 @@ function dominant(p){
   if(state.matchFilter==='positive')return 'positive';
   return (good?.edge||0)>Math.abs(bad?.edge||0)?'positive':'negative';
 }
+// Explain the same model inputs used by the card; never invent supporting factors.
+function selectionExplanation(p,opponent,key,x){
+  const positive=x.edge>0,c=p.context,parts=x.components||{};
+  const sentences=[`${LABEL[key][0].toUpperCase()+LABEL[key].slice(1)} look ${positive?'favourable':'unfavourable'} relative to the player's average: ${fmt(x.projection)} projected versus ${fmt(x.base)} normally (${signed(x.delta??x.projection-x.base)}).`];
+  const evidence=[];
+  if(Number.isFinite(x.roleAllowed)&&Number.isFinite(x.leagueRole)){
+    const delta=x.roleAllowed-x.leagueRole;
+    evidence.push(`${opponent} allow ${fmt(Math.abs(delta))} ${delta>=0?'more':'fewer'} ${LABEL[key]} than the league average to this role`);
+  }
+  if(c&&Math.abs(parts.minutes||0)>=.1)evidence.push(`${fmt(c.projectedMinutes)} estimated minutes versus ${fmt(c.baselineMinutes)} normally ${parts.minutes>0?'adds opportunity':'reduces opportunity'}`);
+  if(Math.abs(parts.form||0)>=.1)evidence.push(`recent per-minute ${LABEL[key]} production is ${parts.form>0?'stronger':'weaker'} than the season rate`);
+  const drivers=(c?.drivers||[]).filter(d=>Math.abs(d.minuteChange)>=.3||Math.abs(d.rates?.[key]||0)>=.02);
+  if(drivers.length)evidence.push(`${drivers.map(d=>d.name).join(' and ')} being out ${drivers.every(d=>d.method.startsWith('Observed'))?'informs the role adjustment through observed with/without splits':'contributes to an estimated role change, not confirmed extra usage'}`);
+  if(evidence.length)sentences.push(evidence[0][0].toUpperCase()+evidence[0].slice(1)+(evidence.length>1?'; '+evidence.slice(1).join('; '):'')+'.');
+  else sentences.push('No separate minutes, form or injury factor is supported by the available data.');
+  if(p.injury&&['questionable','probable','day-to-day'].includes(p.injury.status))sentences.push(`This depends on the player being available (${p.injury.status}); minutes remain an estimate.`);
+  else if(c&&!c.freshInjuries)sentences.push('Fresh injury information is unavailable, so no injury boost is included.');
+  return sentences.join(' ');
+}
 function reasons(p,opponent){
   const stats=Object.entries(p.stats).filter(([,x])=>['positive','negative','strong-positive','strong-negative'].includes(x.level)).sort((a,b)=>Math.abs(b[1].edge)-Math.abs(a[1].edge));
   const notes=[];const c=p.context;
+  for(const [key,x] of stats)notes.push(`<strong>Why ${LABEL[key]}:</strong> ${SAFE(selectionExplanation(p,opponent,key,x))}`);
   if(c)notes.push(`<strong>Estimated minutes: ${fmt(c.projectedMinutes)}</strong> · last five ${fmt(c.recentMinutes)} · season ${fmt(c.baselineMinutes)}. ${c.budgetAdjusted?'Adjusted to the team’s 240-minute budget.':''}`);
   for(const [key,x]of stats.slice(0,2)){
     notes.push(`<strong>${x.edge>0?'Favourable':'Unfavourable'} ${LABEL[key]}:</strong> ${fmt(x.projection)} projected vs ${fmt(x.base)} season average (${signed(x.delta??x.projection-x.base)}).`);
