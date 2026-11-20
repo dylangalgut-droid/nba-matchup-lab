@@ -28,3 +28,14 @@ test('Combined markets require all components and final minutes, including in mu
  assert.equal(E.settle({...bet,type:'multi',legs:[combined,{...leg,stat:'reb+ast',line:13}]},games).status,'won');
  assert(!E.valid({...bet,legs:[{...leg,stat:'toString'}]}));
 });
+test('Made threes validate and settle singles and multi legs without guessing missing data',()=>{
+ const l={...leg,stat:'tpm',line:3};const b={...bet,legs:[l]};
+ const final={g:{completed:true,players:[{id:'p',min:30,pts:20,tpm:3}]}};
+ assert.equal(E.valid(b),true);assert.equal(E.settle(b,final).status,'won');
+ assert.equal(E.legResult({...l,op:'over',line:2.5},final).status,'won');
+ assert.equal(E.legResult({...l,op:'under',line:2.5},final).status,'lost');
+ assert.equal(E.legResult({...l,op:'over'},final).status,'review');
+ assert.equal(E.legResult(l,games).status,'review');
+ assert.equal(E.settle({...b,type:'multi',legs:[l,leg]},final).status,'won');
+ assert.equal(E.legResult(l,{g:{completed:true,players:[{id:'p',min:25,tpm:0}]}}).status,'lost');
+});

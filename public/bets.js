@@ -31,7 +31,7 @@ $('bet-add-leg').onclick=()=>{const g=gamesForDate().find(g=>g.id===$('bet-game'
  if(!g||!p||!raw||!Number.isFinite(line)||line<0||line>200){message('Choose a game, player and valid stat target.');return;}
  if(draft.length>=30){message('Maximum 30 legs.');return;}
  if(draft.some(l=>l.gameId===g.id&&l.playerId===p.id&&l.stat===stat&&l.op===op&&l.line===line)){message('That leg is already added.');return;}
- draft.push({gameId:g.id,playerId:p.id,stat,op,line,label:`${p.name} ${op==='gte'?'at least':op==='over'?'over':'under'} ${line} ${stat.toUpperCase()} · ${g.away} @ ${g.home}`});if(draft.length>1)$('bet-type').value='multi';showDraft();message(`Leg ${draft.length} added. Choose the next player/stat and click Add leg again, or Save bet when finished.`);};
+ draft.push({gameId:g.id,playerId:p.id,stat,op,line,label:`${p.name} ${op==='gte'?'at least':op==='over'?'over':'under'} ${line} ${(stat==='tpm'?'made threes':stat.toUpperCase())} · ${g.away} @ ${g.home}`});if(draft.length>1)$('bet-type').value='multi';showDraft();message(`Leg ${draft.length} added. Choose the next player/stat and click Add leg again, or Save bet when finished.`);};
 $('bet-form').onsubmit=e=>{e.preventDefault();try{const type=$('bet-type').value,mode=$('bet-mode').value,legs=mode==='auto'?draft.slice():[];
  if(mode==='auto'&&(legs.length<(type==='multi'?2:1)||(type==='single'&&legs.length!==1)))throw Error(type==='multi'?'Add at least two legs for a multi.':'Add exactly one leg for a single.');
  const b={id:crypto.randomUUID(),description:$('bet-description').value.trim(),type,date:$('bet-date').value,odds:Number($('bet-odds').value),stake:Number($('bet-stake').value),legs,createdAt:new Date().toISOString(),manual:null};

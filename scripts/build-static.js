@@ -26,10 +26,11 @@ const app = require('../server');
   const resultPath=path.resolve(__dirname,'../data/settlements.json');
   const cache=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../data/cache.json'),'utf8'));
   const archive=fs.existsSync(resultPath)?JSON.parse(fs.readFileSync(resultPath,'utf8')):{games:{}};
+  const shotArchive=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../data/shots.json'),'utf8'));
   const playerMap=new Map();
   for(const g of Object.values(cache.games||{}).sort((a,b)=>a.date.localeCompare(b.date))){
     if(!g.completed)continue;
-    archive.games[g.id]={id:g.id,date:g.date,home:g.home,away:g.away,completed:true,players:g.players.map(p=>({id:String(p.id),name:p.name,team:p.team,min:p.min,pts:p.pts,reb:p.reb,ast:p.ast}))};
+    archive.games[g.id]={id:g.id,date:g.date,home:g.home,away:g.away,completed:true,players:g.players.map(p=>({id:String(p.id),name:p.name,team:p.team,min:p.min,pts:p.pts,reb:p.reb,ast:p.ast,tpm:Number.isFinite(p.tpm)?p.tpm:(shotArchive.games[g.id]?.boxes.find(b=>b.id===String(p.id)&&b.team===p.team)?.tpm??null)}))};
     for(const p of g.players)playerMap.set(String(p.id),{id:String(p.id),name:p.name,team:p.team});
   }
   archive.fixtures=dashboard.matches.map(g=>({id:g.id,date:g.date,home:g.home,away:g.away,completed:!!g.completed}));

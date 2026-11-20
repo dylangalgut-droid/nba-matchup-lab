@@ -1,6 +1,6 @@
 (function(root){
 'use strict';
-const STAT_PARTS={'pts':['pts'],'reb':['reb'],'ast':['ast'],'pts+ast':['pts','ast'],'pts+reb':['pts','reb'],'reb+ast':['reb','ast']};
+const STAT_PARTS={'tpm':['tpm'],'pts':['pts'],'reb':['reb'],'ast':['ast'],'pts+ast':['pts','ast'],'pts+reb':['pts','reb'],'reb+ast':['reb','ast']};
 const round=n=>Math.round((n+Number.EPSILON)*10000)/10000;
 function valid(b){return b&&typeof b.id==='string'&&typeof b.description==='string'&&b.description.trim().length>0&&b.description.length<=500&&/^\d{4}-\d{2}-\d{2}$/.test(b.date)&&['single','multi'].includes(b.type)&&Number.isFinite(b.odds)&&b.odds>1&&b.odds<=100000&&Number.isFinite(b.stake)&&b.stake>0&&b.stake<=100000&&Array.isArray(b.legs)&&b.legs.length<=30&&b.legs.every(l=>l&&typeof l.gameId==='string'&&typeof l.playerId==='string'&&Object.hasOwn(STAT_PARTS,l.stat)&&['gte','over','under'].includes(l.op)&&Number.isFinite(l.line)&&l.line>=0&&l.line<=200)&&(!b.manual||(['won','lost','void','pending'].includes(b.manual.status)&&Number.isFinite(b.manual.profit)&&b.manual.profit>=-b.stake&&b.manual.profit<=1e10));}
 function legResult(l,games){
@@ -12,7 +12,7 @@ function legResult(l,games){
  const value=parts.reduce((total,k)=>total+p[k],0);
  if(l.op!=='gte'&&value===l.line)return {status:'review',value,note:'Push: check bookmaker settlement'};
  const won=l.op==='gte'?value>=l.line:l.op==='over'?value>l.line:value<l.line;
- return {status:won?'won':'lost',value,note:`Final ${l.stat.toUpperCase()}: ${value}`};
+ return {status:won?'won':'lost',value,note:`Final ${(l.stat==='tpm'?'MADE THREES':l.stat.toUpperCase())}: ${value}`};
 }
 function settle(b,games){
  if(b.manual)return {...b.manual,source:'Manual',legs:[]};

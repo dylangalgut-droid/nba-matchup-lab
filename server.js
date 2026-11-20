@@ -73,6 +73,8 @@ function extractBox(summary,event){
         const min=parseMinutes(readStat(vals,labels,['MIN','MINUTES']));
         const pts=get(['PTS','POINTS']), reb=get(['REB','REBOUNDS','TREB']),ast=get(['AST','ASSISTS']);
         const three=readStat(vals,labels,['3PT','3PM3PA','3PM3PA3PCT']);
+        const madeRaw=typeof three==='string'&&/^\d+-\d+$/.test(three.trim())?three.split('-')[0]:readStat(vals,labels,['3PM']);
+        const tpm=madeRaw!==null&&madeRaw!==''&&Number.isInteger(Number(madeRaw))&&Number(madeRaw)>=0?Number(madeRaw):null;
         const threeAtt=typeof three==='string'&&three.includes('-')?statValue(three.split('-')[1]):get(['3PA']);
         const position=player.position?.abbreviation||player.position?.name||player.position||a.position?.abbreviation||null;
         const fg=attemptCount(readStat(vals,labels,['FG','FGM-FGA','FGMFGA']));
@@ -81,7 +83,7 @@ function extractBox(summary,event){
         const turnovers=readStat(vals,labels,['TO','TOV','TURNOVERS']);
         const hasPossessions=fg!==null&&ft!==null&&offRebounds!==null&&turnovers!==null;
         if(!id||min<1)continue;
-        rows.push({id:String(id),name:player.displayName||player.fullName||player.name||'Unknown player',team:offense,opponent,position,min,pts,reb,ast,threeAtt,hasPossessions,fga:fg,fta:ft,orb:statValue(offRebounds),tov:statValue(turnovers)});
+        rows.push({id:String(id),name:player.displayName||player.fullName||player.name||'Unknown player',team:offense,opponent,position,min,pts,reb,ast,tpm,threeAtt,hasPossessions,fga:fg,fta:ft,orb:statValue(offRebounds),tov:statValue(turnovers)});
       }
     }
   }

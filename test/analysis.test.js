@@ -23,7 +23,7 @@ test('Parses ESPN game summary with actual boxscore labels, minutes and position
     {team:{abbreviation:'GS'},statistics:[{labels:['MIN','3PT','REB','AST','PTS'],athletes:[{athlete:{id:'8',displayName:'Example Guard',position:{abbreviation:'PG'}},stats:['34','3-9','5','11','21']}]}]}
   ]}},event);
   assert.equal(result.length,2);
-  assert.equal(result[0].min,31.5);assert.equal(result[0].reb,12);assert.equal(result[0].threeAtt,5);
+  assert.equal(result[0].min,31.5);assert.equal(result[0].reb,12);assert.equal(result[0].threeAtt,5);assert.equal(result[0].tpm,2);assert.equal(result[1].tpm,3);
   assert.equal(result[1].team,'GSW');assert.equal(result[1].opponent,'BOS');assert.equal(result[1].ast,11);
 });
 test('Parses scoreboard, ESPN injuries, and out injury normalization',()=>{
