@@ -17,6 +17,10 @@ const app = require('../server');
   for (const [name, value] of Object.entries({dashboard, backtest:audit, status})) {
     fs.writeFileSync(path.join(out, 'data', name+'.json'), JSON.stringify(value));
   }
+  const shotCache=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../data/cache.json'),'utf8'));
+  const scoring=await require('../scoring').build(shotCache,dashboard,{cached:process.argv.includes('--cached')});
+  fs.writeFileSync(path.join(out,'data/scoring.json'),JSON.stringify(scoring));
+  fs.writeFileSync(path.join(out,'data/dashboard.json'),JSON.stringify(dashboard));
   // Public final box scores only. Private bets never leave the visitor's browser.
   const resultPath=path.resolve(__dirname,'../data/settlements.json');
   const cache=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../data/cache.json'),'utf8'));

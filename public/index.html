@@ -16,6 +16,7 @@
       <nav class="sidebar-nav" aria-label="Main navigation">
         <button class="nav-link active" data-page="defence"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M3 20V9m6 11V4m6 16v-7m6 7V8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span>Defence by role</span></button>
         <button class="nav-link" data-page="matchups"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="m3 7 8-4 10 4v9l-10 5-8-5V7Zm8-4v9m-8-5 8 5 10-5m-10 5v9" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span><span>Game matchups</span><span class="nav-counter" id="nav-count">0</span></button>
+        <button class="nav-link" data-page="scoring"><span class="nav-icon">◎</span><span>Scoring Tendencies</span></button>
         <button class="nav-link" data-page="performance"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M3 20V11h5v9H3Zm7 0V5h5v15h-5Zm7 0v-8h4v8h-4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span><span>Model performance</span></button>
         <button class="nav-link" data-page="bets"><span class="nav-icon">＋</span><span>Bet tracker</span></button>
       </nav>
@@ -56,7 +57,16 @@
           </section>
           <section class="panel explainer-panel"><div class="section-kicker">02 / HOW MATCHUPS ARE SCORED</div><h2>Context beyond raw position</h2><p class="scenario-notice">Minutes and injury effects are estimates, not confirmed lineups. Questionable players are conditional. The new opportunity estimates are not covered by the historical accuracy figures.</p><div class="method-grid"><div><span class="method-number">01</span><strong>Minutes &amp; role</strong><p>Estimate playing time from the last five games and season rotation. A changing role can help one player while another loses minutes.</p></div><div><span class="method-number">02</span><strong>Opponent allowance</strong><p>Compare opponents' per-36 role allowances with league norms; shrink small samples toward neutral.</p></div><div><span class="method-number">03</span><strong>Injury impact</strong><p>Fresh absences can change estimated minutes and per-minute production. Use observed with/without splits when available, or a capped role estimate when they are not. Long-standing absences are not boosted again.</p></div></div></section>
         </section>
-        <section class="page hidden" id="page-performance">
+        <section id="page-scoring" class="page hidden">
+<div class="hero"><div class="eyebrow">SHOT LOCATION INTELLIGENCE</div><h1>Scoring <em>Tendencies.</em></h1><p>Where teams shoot, where defences concede, and which players take those shots.</p></div>
+<section class="panel heatmap-panel"><div class="heatmap-toolbar">
+<label>View <select id="shot-view"><option value="def">Defensive allowance</option><option value="off">Offensive shot mix</option></select></label>
+<label>Measure <select id="shot-metric"><option value="points">Points per game</option><option value="attempts">Attempts per game</option><option value="ppa">Points per attempt</option><option value="mix" disabled>Share of field-goal attempts</option></select></label>
+<label>Melbourne date <select id="shot-day"></select></label><label>Fixture <select id="shot-game"><option value="all">All fixtures</option></select></label>
+</div><p id="shot-coverage" class="heatmap-intro">Loading verified shot data…</p><p class="heatmap-intro">Each cell shows the signed difference, team average and league average. All three numbers are clickable. Horizontal scroll shows all teams.</p>
+<div class="heatmap-scroll"><table id="shot-table" class="shot-table"></table></div><div id="shot-detail" class="heatmap-detail" aria-live="polite">Select a numeric cell to see players.</div>
+</section><section class="panel shot-report" id="shot-audit"></section><section class="panel shot-report"><h3>Sources and definitions</h3><p id="shot-method"></p><p>Play types are not inferred from location. This version does not claim transition, spot-up or pick-and-roll tracking.</p></section></section>
+<section class="page hidden" id="page-performance">
           <div class="hero"><div class="eyebrow"><span class="eyebrow-rule"></span>HISTORICAL PREDICTIVE AUDIT</div><h1>Tested, <em>not assumed.</em></h1><p>Chronological backtesting against actual player box scores. Weights are trained using earlier games, then evaluated on later dates without using future outcomes in predictions.</p></div>
           <div class="performance-actions"><div id="performance-summary" class="performance-summary">Import historical games to calculate predictive accuracy.</div><button class="refresh-btn" type="button" id="audit-refresh">Recalculate backtest</button></div>
           <section class="panel performance-panel"><div class="panel-head"><div><div class="section-kicker">01 / OUT-OF-SAMPLE ACCURACY</div><h2>Points, rebounds &amp; assists</h2></div><span class="head-tag">HOLDOUT DATA</span></div><div id="performance-metrics" class="performance-grid"></div></section>
@@ -86,5 +96,6 @@
   <script src="/app.js" defer></script>
   <script src="./bet-engine.js" defer></script>
   <script src="./bets.js" defer></script>
+<script src="./scoring.js"></script>
 </body>
 </html>

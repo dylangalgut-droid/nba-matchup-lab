@@ -11,7 +11,7 @@ function setPage(page){
   state.page=page;
   document.querySelectorAll('.page').forEach(e=>e.classList.toggle('hidden',e.id!==`page-${page}`));
   document.querySelectorAll('.nav-link').forEach(e=>e.classList.toggle('active',e.dataset.page===page));
-  $('crumb-page').textContent=page==='defence'?'Defence by role':page==='matchups'?'Game matchups':page==='bets'?'Bet tracker':'Model performance';
+  $('crumb-page').textContent=page==='defence'?'Defence by role':page==='matchups'?'Game matchups':page==='bets'?'Bet tracker':page==='scoring'?'Scoring Tendencies':'Model performance';
   if(page==='performance')loadAudit();
   render();window.scrollTo({top:0,behavior:'smooth'});
 }
@@ -119,6 +119,12 @@ function selectionExplanation(p,opponent,key,x){
 function reasons(p,opponent){
   const stats=Object.entries(p.stats).filter(([,x])=>['positive','negative','strong-positive','strong-negative'].includes(x.level)).sort((a,b)=>Math.abs(b[1].edge)-Math.abs(a[1].edge));
   const notes=[];const c=p.context;
+  const shot=p.shotCandidate;
+  if(shot&&shot.threesBaseline!==null){
+    const driver=[...shot.drivers].sort((a,b)=>Math.abs(b.pts)-Math.abs(a.pts))[0];
+    notes.push(`<strong>Shot-tendency candidate (not applied):</strong> Points ${fmt(shot.points)} (${signed(shot.pts)} adjustment); made threes ${fmt(shot.threes)} vs ${fmt(shot.threesBaseline)} baseline (${signed(shot.tpm)}).`);
+    if(driver&&Math.abs(driver.pts)>=.1)notes.push(`${SAFE(driver.name)} is the largest shot-zone driver: ${signed(driver.pts)} projected points${Math.abs(driver.tpm)>=.03?` / ${signed(driver.tpm)} made threes`:''}, after shrinking small samples and removing the defence’s overall efficiency effect. See Scoring Tendencies for the paired backtest.`);
+  }
   for(const [key,x] of stats)notes.push(`<strong>Why ${LABEL[key]}:</strong> ${SAFE(selectionExplanation(p,opponent,key,x))}`);
   if(c)notes.push(`<strong>Estimated minutes: ${fmt(c.projectedMinutes)}</strong> · last five ${fmt(c.recentMinutes)} · season ${fmt(c.baselineMinutes)}. Minutes changes receive 60% weight, capped at ±20% of baseline output; matchup and injury-related usage adjustments retain full weight. ${c.budgetAdjusted?'Adjusted to the team’s 240-minute budget.':''}`);
   for(const [key,x]of stats.slice(0,2)){
