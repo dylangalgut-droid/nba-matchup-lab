@@ -1,0 +1,54 @@
+name: Isolated NBA play-type connectivity test
+on:
+  push:
+    branches: [diagnostic/nba-synergy-connectivity]
+permissions:
+  contents: read
+jobs:
+  probe:
+    if: github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read-only NBA endpoint checks
+        shell: python
+        run: |
+          import urllib.request, urllib.parse, json, time, os
+          cases = [
+            ("Current team roll-man defence", "2026-27", "T", "PRRollMan", "defensive"),
+            ("Current player ball-handler offence", "2026-27", "P", "PRBallHandler", "offensive"),
+            ("Previous season control", "2025-26", "T", "PRRollMan", "defensive")
+          ]
+          results = []
+          for label, season, kind, play, grouping in cases:
+              params = dict(LeagueID="00", PerMode="PerGame", PlayType=play, PlayerOrTeam=kind, SeasonType="Regular Season", SeasonYear=season, TypeGrouping=grouping)
+              url = "https://stats.nba.com/stats/synergyplaytypes?" + urllib.parse.urlencode(params)
+              start = time.monotonic()
+              result = dict(test=label, season=season)
+              try:
+                  request = urllib.request.Request(url, headers={"Accept":"application/json", "User-Agent":"NBA-Matchup-Lab-connectivity-test/1.0"})
+                  with urllib.request.urlopen(request, timeout=20) as response:
+                      raw = response.read()
+                      result.update(http=response.status, bytes=len(raw))
+                  data = json.loads(raw)
+                  sets = data.get("resultSets", [])
+                  if isinstance(sets, dict): sets = [sets]
+                  result["rows"] = sum(len(s.get("rowSet", [])) for s in sets)
+                  result["usable"] = result["rows"] > 0
+                  result["columns"] = [s.get("headers", []) for s in sets]
+              except Exception as e:
+                  result.update(usable=False, error=str(e))
+              result["seconds"] = round(time.monotonic()-start, 2)
+              print(json.dumps(result), flush=True)
+              results.append(result)
+          try:
+              url = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
+              with urllib.request.urlopen(url, timeout=10) as response:
+                  data=json.load(response)
+                  control={"test":"Existing ESPN feed control", "http":response.status, "events":len(data.get("events", []))}
+          except Exception as e:
+              control={"test":"Existing ESPN feed control", "error":str(e)}
+          print(json.dumps(control), flush=True)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write("# Read-only connectivity results\nNo checkout, cache writes, deployment, secrets or site changes.\n\n")
+              summary.write("\x60\x60\x60json\n"+json.dumps(results+[control], indent=2)+"\n\x60\x60\x60\n")
