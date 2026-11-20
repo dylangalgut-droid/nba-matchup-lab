@@ -64,6 +64,20 @@ function adjustment(agg,id,team,opp){
  const pts=rawPts*scale,tpm=rawThrees*scale;
  return {pts,tpm,drivers};
 }
+function applyShotProjection(p,adj,threesBaseline=null){
+ const x=p.stats.pts;
+ const baseline=x.beforeShots??x.projection;
+ x.beforeShots=baseline;
+ x.projection=Math.round(Math.max(0,baseline+adj.pts)*100)/100;
+ x.delta=Math.round((x.projection-x.base)*100)/100;
+ x.edge=x.totalEdge=Math.round(1000*x.delta/Math.max(1,x.base))/10;
+ x.level=x.limited?'limited':Math.abs(x.delta)<1.5?'neutral':x.edge>=17?'strong-positive':x.edge>=10?'positive':x.edge<=-17?'strong-negative':x.edge<=-10?'negative':'neutral';
+ x.components={...x.components,shots:Math.round(adj.pts*100)/100};
+ p.shotCandidate={...adj,points:x.projection,pointsBaseline:baseline,threesBaseline,threes:threesBaseline===null?null:Math.max(0,threesBaseline+adj.tpm),enabled:true};
+ p.major=['pts','reb','ast'].some(k=>['strong-positive','strong-negative'].includes(p.stats[k].level));
+ p.maxEdge=Math.max(...['pts','reb','ast'].map(k=>Math.abs(p.stats[k].edge)));
+ return ['pts','reb','ast'].some(k=>['positive','negative','strong-positive','strong-negative'].includes(p.stats[k].level));
+}
 function audit(all,shotGames){
  const valid=new Map(shotGames.map(g=>[g.id,g]));const dates=[...new Set(all.map(g=>g.date.slice(0,10)))].sort();let rows=[];
  for(const date of dates){
@@ -80,7 +94,7 @@ function audit(all,shotGames){
  const metrics=Object.fromEntries(['pts','tpm'].map(k=>{const n=holdout.length,mae=n?holdout.reduce((s,r)=>s+Math.abs(r[k].base-r[k].actual),0)/n:null,next=n?holdout.reduce((s,r)=>s+Math.abs(r[k].next-r[k].actual),0)/n:null;return [k,{n,baselineMAE:mae,shotMAE:next,improvement:mae==null?null:mae-next}];}));
  // Descriptive and candidate only: historical injury snapshots and the original
  // deployed coefficient versions do not exist. Do not claim a full live-model test.
- return {metrics,totalRows:rows.length,first:holdout[0]?.date,last:holdout.at(-1)?.date,enabled:false,reason:'Candidate only. Walk-forward comparison reconstructs the current model with frozen default coefficients and no historical injury reports; it cannot reproduce historical deployed predictions. Made-threes baseline is prior player average (the existing model had no made-threes forecast). Default projections remain unchanged.',method:'Last 30% of eligible dates held out; every feature uses earlier calendar dates only. Same player-games for both variants; minimum five prior player and opponent shot games. No tuning on these results.'};
+ return {metrics,totalRows:rows.length,first:holdout[0]?.date,last:holdout.at(-1)?.date,enabled:true,reason:'Shot adjustments enabled by user request despite slightly worse initial held-out errors. Walk-forward comparison reconstructs the current model with frozen default coefficients and no historical injury reports; it cannot reproduce historical deployed predictions. Made-threes baseline is prior player average (the existing model had no made-threes forecast). Live points and made-threes projections include the modest shot adjustment.',method:'Last 30% of eligible dates held out; every feature uses earlier calendar dates only. Same player-games for both variants; minimum five prior player and opponent shot games. No tuning on these results.'};
 }
 async function build(cache,dashboard,{cached=false}={}){
  const file=path.join(__dirname,'data/shots.json');let archive;try{archive=JSON.parse(fs.readFileSync(file));}catch{archive={games:{}};}
@@ -91,7 +105,13 @@ async function build(cache,dashboard,{cached=false}={}){
  const ids=new Set(all.map(g=>g.id)),games=Object.values(archive.games).filter(g=>ids.has(g.id)),agg=aggregate(games),report=audit(all,games);
  const names=new Map();for(const g of all)for(const p of g.players)names.set(String(p.id),p);
  for(const p of Object.values(agg.players)){const n=names.get(p.id);p.name=n?.name||p.id;p.currentTeam=n?.team;p.injury=(cache.injuries?.records||[]).find(i=>String(i.id)===p.id)?.status||null;}
- for(const g of dashboard.matches)for(const p of g.players){const opp=p.team===g.home?g.away:g.home,adj=adjustment(agg,p.id,p.team,opp),sp=agg.players[p.team+'|'+p.id];p.shotCandidate={...adj,points:Math.max(0,p.stats.pts.projection+adj.pts),threesBaseline:sp?sp.tpm/sp.games:null,threes:sp?Math.max(0,sp.tpm/sp.games+adj.tpm):null,enabled:false};}
+ for(const g of dashboard.matches){
+  g.players=g.players.filter(p=>{const opp=p.team===g.home?g.away:g.home,adj=adjustment(agg,p.id,p.team,opp),sp=agg.players[p.team+'|'+p.id];return applyShotProjection(p,adj,sp?sp.tpm/sp.games:null);});
+  g.players.sort((a,b)=>Number(b.major)-Number(a.major)||b.maxEdge-a.maxEdge);
+ }
+ dashboard.highlights=dashboard.matches.flatMap(g=>g.players.map(p=>({...p,opponent:p.team===g.home?g.away:g.home,eventId:g.id,gameDate:g.date}))).sort((a,b)=>Number(b.major)-Number(a.major)||b.maxEdge-a.maxEdge);
+ dashboard.methodology.shots='Shot tendencies adjust points and made threes once, with sample shrinkage and caps of ±1.5 points / ±0.35 threes. Enabled by request; the initial paired backtest was slightly worse.';
+
  return {zones:ZONES,...agg,audit:report,coverage:{expected:all.length,imported:games.length,excluded:all.length-games.length,failures:failures.slice(0,15)},lastUpdated:dashboard.lastUpdated,fixtures:dashboard.matches.map(({id,date,home,away,completed})=>({id,date,home,away,completed})),source:'ESPN public play-by-play and reconciled box scores',notes:'Locations are rounded ESPN coordinates: hoop (25,0), restricted radius ≤4 ft, other paint |x−25|≤8 and y≤13.75, corner three |x−25|≥22 and y≤9; remaining two/three-point shots go to mid-range/above-break. Zones are mutually exclusive location estimates, not official tracking classifications. Free throws excluded. Recorded heaves excluded from player box-score attempts remain in team zone totals but not player attempts. Only games whose attempts, makes and threes reconcile to every player box score are included. Play types unavailable.'};
 }
-module.exports={ZONES,zone,parse,aggregate,adjustment,audit,build};
+module.exports={ZONES,zone,parse,aggregate,adjustment,applyShotProjection,audit,build};

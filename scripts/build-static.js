@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 process.env.DATA_DIR = path.resolve(__dirname, '../data');
 delete process.env.DATABASE_URL;
+process.env.SHOT_TENDENCIES_ENABLED='1';
 const app = require('../server');
 (async () => {
   await app.initialize();

@@ -15,3 +15,12 @@ test('Shot adjustment is absent without evidence and removes broad defensive eff
  assert.deepEqual(S.adjustment(S.aggregate([]),'p','BOS','NYK'),{pts:0,tpm:0,drivers:[]});
  const s=fixture(),g=S.parse(s,{id:'g',home:'BOS',away:'NYK'});const a=S.aggregate(Array.from({length:10},()=>g));assert.equal(S.adjustment(a,'p','BOS','NYK').pts,0);
 });
+test('Live shot adjustment changes projection and qualification once, preserving other stats',()=>{
+ const p={stats:{pts:{base:10,projection:11.4,limited:false,components:{matchup:1.4}},reb:{projection:5,edge:0,level:'neutral'},ast:{projection:3,edge:0,level:'neutral'}}};
+ const adj={pts:.4,tpm:.1,drivers:[{zone:'corner',pts:.4,tpm:.1}]};
+ assert.equal(S.applyShotProjection(p,adj,2),true);
+ assert.equal(p.stats.pts.projection,11.8);assert.equal(p.stats.pts.level,'strong-positive');assert.equal(p.major,true);
+ assert.equal(p.shotCandidate.threes,2.1);assert.equal(p.stats.reb.projection,5);assert.equal(p.stats.ast.projection,3);
+ S.applyShotProjection(p,adj,2);assert.equal(p.stats.pts.projection,11.8);
+ assert.equal(S.applyShotProjection(p,{pts:-.5,tpm:0,drivers:[]},2),false);assert.equal(p.stats.pts.level,'neutral');assert.equal(p.major,false);
+});

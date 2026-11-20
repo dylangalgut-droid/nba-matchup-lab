@@ -122,14 +122,14 @@ function reasons(p,opponent){
   const shot=p.shotCandidate;
   if(shot&&shot.threesBaseline!==null){
     const driver=[...shot.drivers].sort((a,b)=>Math.abs(b.pts)-Math.abs(a.pts))[0];
-    notes.push(`<strong>Shot-tendency candidate (not applied):</strong> Points ${fmt(shot.points)} (${signed(shot.pts)} adjustment); made threes ${fmt(shot.threes)} vs ${fmt(shot.threesBaseline)} baseline (${signed(shot.tpm)}).`);
+    notes.push(`<strong>Shot tendencies included:</strong> Points ${fmt(shot.points)} (${signed(shot.pts)} adjustment); made threes ${fmt(shot.threes)} vs ${fmt(shot.threesBaseline)} baseline (${signed(shot.tpm)}).`);
     if(driver&&Math.abs(driver.pts)>=.1)notes.push(`${SAFE(driver.name)} is the largest shot-zone driver: ${signed(driver.pts)} projected points${Math.abs(driver.tpm)>=.03?` / ${signed(driver.tpm)} made threes`:''}, after shrinking small samples and removing the defence’s overall efficiency effect. See Scoring Tendencies for the paired backtest.`);
   }
   for(const [key,x] of stats)notes.push(`<strong>Why ${LABEL[key]}:</strong> ${SAFE(selectionExplanation(p,opponent,key,x))}`);
   if(c)notes.push(`<strong>Estimated minutes: ${fmt(c.projectedMinutes)}</strong> · last five ${fmt(c.recentMinutes)} · season ${fmt(c.baselineMinutes)}. Minutes changes receive 60% weight, capped at ±20% of baseline output; matchup and injury-related usage adjustments retain full weight. ${c.budgetAdjusted?'Adjusted to the team’s 240-minute budget.':''}`);
   for(const [key,x]of stats.slice(0,2)){
     notes.push(`<strong>${x.edge>0?'Favourable':'Unfavourable'} ${LABEL[key]}:</strong> ${fmt(x.projection)} projected vs ${fmt(x.base)} season average (${signed(x.delta??x.projection-x.base)}).`);
-    if(x.components)notes.push(`<span class="component-breakdown">${Object.entries(x.components).map(([k,v])=>`${{minutes:'Minutes',form:'Recent rate',injury:'Injury / role',matchup:'Defence & pace'}[k]} ${signed(v)}`).join(' · ')}</span>`);
+    if(x.components)notes.push(`<span class="component-breakdown">${Object.entries(x.components).map(([k,v])=>`${{minutes:'Minutes',form:'Recent rate',injury:'Injury / role',matchup:'Defence & pace',shots:'Shot zones'}[k]} ${signed(v)}`).join(' · ')}</span>`);
     if(x.roleAllowed!==null)notes.push(`${SAFE(opponent)} allow ${fmt(x.roleAllowed)} ${LABEL[key]} to this role vs ${fmt(x.leagueRole)} league-wide (${x.roleN} player-games). This is one input, not the whole signal.`);
   }
   for(const driver of c?.drivers||[])notes.push(`<span class="injury-flag"><strong>${SAFE(driver.name)} out:</strong> ${SAFE(driver.method)} · ${signed(driver.minuteChange)} estimated minutes${driver.method.startsWith('Observed')?` · ${driver.withGames} with / ${driver.withoutGames} without games`:'. Usage change is an assumption, not a confirmed coaching decision'}.</span>`);

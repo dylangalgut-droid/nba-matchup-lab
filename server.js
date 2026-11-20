@@ -143,7 +143,7 @@ function rebuild(){
   const today=localDate(),tomorrow=addDays(today,1);
   const possible=Object.values(cache.scores||{}).flatMap(v=>v.events||[]);
   const unique=new Map(possible.filter(g=>g.date&&[today,tomorrow].includes(localDate(new Date(g.date)))).map(g=>[g.id,g]));
-  dashboard=buildAnalysis(all,[...unique.values()],cache.injuries,{targetDate:today,includeCompleted:true,startDate:currentPeriod().start,model:audit?.status==='evaluated'?audit.selectedModel:defaultModel()});
+  dashboard=buildAnalysis(all,[...unique.values()],cache.injuries,{targetDate:today,includeNeutral:process.env.SHOT_TENDENCIES_ENABLED==='1',includeCompleted:true,startDate:currentPeriod().start,model:audit?.status==='evaluated'?audit.selectedModel:defaultModel()});
   dashboard.slateDates=[today,tomorrow];
   dashboard.backtest={status:audit?.status||'insufficient',observations:audit?.observations||0,training:audit?.training||null,holdout:audit?.holdout||null,models:audit?.models||null};
   dashboard.lastUpdated=cache.lastUpdated||null;
