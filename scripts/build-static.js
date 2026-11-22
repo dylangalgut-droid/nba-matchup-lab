@@ -30,8 +30,13 @@ const app = require('../server');
   const playerMap=new Map();
   for(const g of Object.values(cache.games||{}).sort((a,b)=>a.date.localeCompare(b.date))){
     if(!g.completed)continue;
-    archive.games[g.id]={id:g.id,date:g.date,home:g.home,away:g.away,completed:true,players:g.players.map(p=>({id:String(p.id),name:p.name,team:p.team,min:p.min,pts:p.pts,reb:p.reb,ast:p.ast,tpm:Number.isFinite(p.tpm)?p.tpm:(shotArchive.games[g.id]?.boxes.find(b=>b.id===String(p.id)&&b.team===p.team)?.tpm??null)}))};
+    archive.games[g.id]={id:g.id,date:g.date,home:g.home,away:g.away,completed:true,homeScore:g.homeScore??null,awayScore:g.awayScore??null,players:g.players.map(p=>({id:String(p.id),name:p.name,team:p.team,min:p.min,pts:p.pts,reb:p.reb,ast:p.ast,tpm:Number.isFinite(p.tpm)?p.tpm:(shotArchive.games[g.id]?.boxes.find(b=>b.id===String(p.id)&&b.team===p.team)?.tpm??null)}))};
     for(const p of g.players)playerMap.set(String(p.id),{id:String(p.id),name:p.name,team:p.team});
+  }
+  // Final scoreboard results settle H2H independently of player-box availability.
+  for(const entry of Object.values(cache.scores||{}))for(const g of entry.events||[]){
+    if(!g.completed||!Number.isFinite(g.homeScore)||!Number.isFinite(g.awayScore))continue;
+    archive.games[g.id]={...archive.games[g.id],id:g.id,date:g.date,home:g.home,away:g.away,completed:true,homeScore:g.homeScore,awayScore:g.awayScore,players:archive.games[g.id]?.players||[]};
   }
   archive.fixtures=dashboard.matches.map(g=>({id:g.id,date:g.date,home:g.home,away:g.away,completed:!!g.completed}));
   archive.players=[...playerMap.values()];archive.updatedAt=dashboard.lastUpdated;

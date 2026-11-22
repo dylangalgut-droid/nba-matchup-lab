@@ -36,7 +36,8 @@ function eventFromESPN(e){
   const comps=e?.competitions?.[0]?.competitors||[];
   const home=comps.find(x=>x.homeAway==='home')?.team;
   const away=comps.find(x=>x.homeAway==='away')?.team;
-  return {id:String(e.id),date:e.date||e.competitions?.[0]?.date||'',home:normTeam(home?.abbreviation),away:normTeam(away?.abbreviation),completed:!!(e.status?.type?.completed||e.status?.type?.state==='post'),seasonType:e.season?.type??null,description:e.name||''};
+  const score=side=>{const v=comps.find(x=>x.homeAway===side)?.score;return v!==undefined&&v!==null&&String(v).trim()!==''&&Number.isFinite(Number(v))&&Number(v)>=0?Number(v):null;};
+  return {id:String(e.id),date:e.date||e.competitions?.[0]?.date||'',home:normTeam(home?.abbreviation),away:normTeam(away?.abbreviation),completed:!!(e.status?.type?.completed||e.status?.type?.state==='post'),homeScore:score('home'),awayScore:score('away'),seasonType:e.season?.type??null,description:e.name||''};
 }
 function parseMinutes(v){
   if(typeof v==='number')return v;

@@ -23,11 +23,21 @@ function render(){
 }
 function gamesForDate(){return [...feed.fixtures,...Object.values(feed.games)].filter((g,i,a)=>day(g.date)===$('bet-date').value&&a.findIndex(x=>x.id===g.id)===i).sort((a,b)=>a.date.localeCompare(b.date));}
 function games(){const selected=$('bet-game').value;const gs=gamesForDate();$('bet-game').innerHTML='<option value="">Choose game</option>'+gs.map(g=>`<option value="${esc(g.id)}">${esc(g.away)} @ ${esc(g.home)}</option>`).join('');if(gs.some(g=>g.id===selected))$('bet-game').value=selected;players();}
-function players(){const selected=$('bet-player').value;const g=gamesForDate().find(g=>g.id===$('bet-game').value);const ps=g?feed.players.filter(p=>p.team===g.home||p.team===g.away):[];$('bet-player').innerHTML='<option value="">Choose player</option>'+ps.sort((a,b)=>a.name.localeCompare(b.name)).map(p=>`<option value="${esc(p.id)}">${esc(p.name)} (${esc(p.team)})</option>`).join('');if(ps.some(p=>p.id===selected))$('bet-player').value=selected;}
+function players(){const selected=$('bet-player').value;const g=gamesForDate().find(g=>g.id===$('bet-game').value);const ps=g?feed.players.filter(p=>p.team===g.home||p.team===g.away):[];$('bet-player').innerHTML='<option value="">Choose player</option>'+ps.sort((a,b)=>a.name.localeCompare(b.name)).map(p=>`<option value="${esc(p.id)}">${esc(p.name)} (${esc(p.team)})</option>`).join('');if(ps.some(p=>p.id===selected))$('bet-player').value=selected;const team=$('bet-team').value;$('bet-team').innerHTML='<option value="">Choose team</option>'+(g?[g.away,g.home].map(t=>`<option value="${esc(t)}">${esc(t)} to win</option>`).join(''):'');$('bet-team').value=g&&[g.home,g.away].includes(team)?team:'';}
 function showDraft(){$('bet-legs').innerHTML=draft.map((l,i)=>`<li>${esc(l.label)} <button type="button" data-remove="${i}" aria-label="Remove leg ${i+1}">Remove</button></li>`).join('');$('bet-legs').querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{draft.splice(Number(b.dataset.remove),1);showDraft();});}
 $('bet-date').value=$('bet-view-date').value=day(Date.now());
 $('bet-date').onchange=()=>{games();message('Game list updated. Your added legs have been kept.');};$('bet-game').onchange=players;
+function market(){const h=$('bet-stat').value==='h2h';$('bet-team-field').hidden=!h;for(const id of ['bet-player-field','bet-op-field','bet-line-field'])$(id).hidden=h;}
+$('bet-stat').onchange=market;market();
 $('bet-add-leg').onclick=()=>{const g=gamesForDate().find(g=>g.id===$('bet-game').value),p=feed.players.find(p=>p.id===$('bet-player').value),raw=$('bet-line').value,line=Number(raw),stat=$('bet-stat').value,op=$('bet-op').value;
+ if(stat==='h2h'){
+  const team=$('bet-team').value;
+  if(!g||![g.home,g.away].includes(team)){message('Choose a game and the team to win.');return;}
+  if(draft.length>=30){message('Maximum 30 legs.');return;}
+  if(draft.some(l=>l.gameId===g.id&&l.stat==='h2h')){message('A head-to-head leg for this game is already added.');return;}
+  draft.push({gameId:g.id,stat:'h2h',team,label:`${team} to win (including overtime) · ${g.away} @ ${g.home}`});
+  if(draft.length>1)$('bet-type').value='multi';showDraft();message(`Leg ${draft.length} added. Choose another market or Save bet.`);return;
+ }
  if(!g||!p||!raw||!Number.isFinite(line)||line<0||line>200){message('Choose a game, player and valid stat target.');return;}
  if(draft.length>=30){message('Maximum 30 legs.');return;}
  if(draft.some(l=>l.gameId===g.id&&l.playerId===p.id&&l.stat===stat&&l.op===op&&l.line===line)){message('That leg is already added.');return;}

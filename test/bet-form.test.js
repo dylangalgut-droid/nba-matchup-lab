@@ -14,5 +14,7 @@ test('Multi builder accepts started games, preserves selections on refresh and k
  assert.equal(el('bet-type').value,'multi');assert.match(el('bet-legs').innerHTML,/20 PTS/);assert.match(el('bet-legs').innerHTML,/5 AST/);assert.match(el('bet-leg-message').textContent,/Leg 2 added/);
  el('bet-add-leg').onclick();assert.match(el('bet-leg-message').textContent,/already added/);
  el('bet-description').value='Already placed multi';el('bet-mode').value='auto';el('bet-odds').value='3';el('bet-stake').value='1';el('bet-form').onsubmit({preventDefault(){}});
- const saved=JSON.parse(stored);assert.equal(saved.length,1);assert.equal(saved[0].legs.length,2);assert.equal(saved[0].legs[0].gameId,'one');assert.equal(saved[0].legs[1].gameId,'two');
+ el('bet-stat').value='h2h';el('bet-stat').onchange();assert.equal(el('bet-player-field').hidden,true);assert.equal(el('bet-team-field').hidden,false);el('bet-team').value='BOS';el('bet-player').value='';el('bet-line').value='';el('bet-add-leg').onclick();assert.match(el('bet-legs').innerHTML,/BOS to win/);el('bet-add-leg').onclick();assert.match(el('bet-leg-message').textContent,/already added/);
+ el('bet-description').value='H2H single';el('bet-type').value='single';el('bet-odds').value='2';el('bet-stake').value='1';el('bet-form').onsubmit({preventDefault(){}});
+ const saved=JSON.parse(stored);assert.equal(saved.length,2);assert.equal(saved[1].legs[0].stat,'h2h');assert.equal(saved[1].legs[0].team,'BOS');assert.equal(saved[0].legs.length,2);assert.equal(saved[0].legs[0].gameId,'one');assert.equal(saved[0].legs[1].gameId,'two');
 });

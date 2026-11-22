@@ -39,3 +39,13 @@ test('Made threes validate and settle singles and multi legs without guessing mi
  assert.equal(E.settle({...b,type:'multi',legs:[l,leg]},final).status,'won');
  assert.equal(E.legResult(l,{g:{completed:true,players:[{id:'p',min:25,tpm:0}]}}).status,'lost');
 });
+test('H2H settles final winners, mixed multis, and safely handles missing or tied scores',()=>{
+ const l={gameId:'g',stat:'h2h',team:'BOS'};const b={...bet,legs:[l]};
+ const final={g:{...games.g,home:'BOS',away:'NYK',homeScore:112,awayScore:109}};
+ assert.equal(E.valid(b),true);assert.equal(E.valid({...b,legs:[{...l,team:''}]}),false);
+ assert.equal(E.settle(b,final).status,'won');assert.equal(E.settle({...b,legs:[{...l,team:'NYK'}]},final).status,'lost');
+ assert.equal(E.settle({...b,type:'multi',legs:[l,leg]},final).status,'won');
+ assert.equal(E.legResult(l,{g:{...final.g,completed:false}}).status,'pending');
+ for(const fields of [{homeScore:null},{homeScore:109},{homeScore:-1}])assert.equal(E.legResult(l,{g:{...final.g,...fields}}).status,'review');
+ assert.equal(E.legResult({...l,team:'LAL'},final).status,'review');
+});
